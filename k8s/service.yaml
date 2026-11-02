@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: portfolio-api
+  name: fpl-radar
   labels:
-    app: portfolio-api
+    app: fpl-radar
 spec:
   type: ClusterIP        # reachable only inside the cluster
   selector:
-    app: portfolio-api   # routes to Ready pods carrying this label
+    app: fpl-radar       # routes to Ready pods carrying this label
   ports:
     - name: http
       port: 80           # port of the Service
