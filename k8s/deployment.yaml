@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portfolio-api
+  labels:
+    app: portfolio-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: portfolio-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0   # never drop below desired capacity during a rollout
+      maxSurge: 1         # start one extra pod, wait until Ready, then retire an old one
+  template:
+    metadata:
+      labels:
+        app: portfolio-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001   # same UID as in the Dockerfile
+      containers:
+        - name: api
+          # Replace TWOJ_LOGIN with your GitHub username (lowercase).
+          # In production pin an immutable tag such as sha-abc1234 instead of latest.
+          image: ghcr.io/TWOJ_LOGIN/devops-portfolio:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: portfolio-db
+                  key: DATABASE_URL
+                  optional: true   # demo only: without the Secret the app falls back to SQLite
+          resources:
+            requests:        # used by the scheduler AND as the 100% baseline for the HPA
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:   # not Ready -> Service sends no traffic to this pod
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:    # keeps failing -> kubelet restarts the container
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: portfolio-api
+  labels:
+    app: portfolio-api
+spec:
+  type: ClusterIP        # reachable only inside the cluster
+  selector:
+    app: portfolio-api   # routes to Ready pods carrying this label
+  ports:
+    - name: http
+      port: 80           # port of the Service
+      targetPort: http   # named container port (8000) from the Deployment
