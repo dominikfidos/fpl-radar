@@ -131,10 +131,8 @@ kubectl run load1 --rm -i --tty --image=busybox:1.36 --restart=Never -- \
 
 CPU rises above the 70% target and the HPA adds pods. After the load stops, pods are removed gradually.
 
-<!-- Add screenshots to a docs/ folder, then uncomment:
 ![Green pipeline](docs/actions.png)
 ![HPA scaling](docs/hpa.png)
--->
 
 ## Design decisions
 
