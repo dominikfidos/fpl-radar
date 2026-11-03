@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fpl-radar
+description: FPL Radar - API, web UI and scheduled jobs for Fantasy Premier League mini-league analysis
+type: application
+version: 0.1.0        # version of this chart; bump when the templates change
+appVersion: "1.0.0"   # version of the application it deploys

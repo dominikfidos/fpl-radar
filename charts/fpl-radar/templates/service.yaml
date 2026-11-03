@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fpl-radar.fullname" . }}
+  labels:
+    {{- include "fpl-radar.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP        # reachable only inside the cluster
+  selector:
+    {{- include "fpl-radar.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http   # named container port (8000) from the Deployment

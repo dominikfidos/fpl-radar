@@ -1,0 +1,50 @@
+# Default settings. Anything here can be overridden with  -f my-values.yaml  or  --set key=value.
+
+replicaCount: 2            # ignored while autoscaling is enabled (the HPA decides)
+
+image:
+  repository: ghcr.io/dominikfidos/fpl-radar
+  tag: latest              # in production pin an immutable tag such as sha-abc1234
+  pullPolicy: Always
+
+service:
+  port: 80
+
+# Non-secret settings, stored in a ConfigMap.
+config:
+  leagueId: ""             # number from your mini-league URL
+  entryId: ""              # number from your team URL
+  rateLimitPerMinute: 15   # 0 switches the limit off
+
+# The password lives in a Secret created outside the chart, so it never ends up in Git.
+#   kubectl create secret generic fpl-db --from-literal=DATABASE_URL=... (see README)
+database:
+  existingSecret: fpl-db
+  urlKey: DATABASE_URL
+
+resources:
+  requests:
+    cpu: 100m              # also the 100% baseline for the autoscaler
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+# Hourly job that saves player snapshots into the database.
+collector:
+  enabled: true
+  schedule: "0 * * * *"    # UTC
+
+# Daily job that builds the league report (warms the cache, logs the result).
+leagueRefresh:
+  enabled: true
+  schedule: "0 6 * * *"    # UTC
+
+nameOverride: ""
+fullnameOverride: ""

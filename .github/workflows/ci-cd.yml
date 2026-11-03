@@ -41,6 +41,11 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Lint Helm chart
+        run: |
+          helm lint charts/fpl-radar --set config.leagueId=1 --set config.entryId=1
+          helm template fpl-radar charts/fpl-radar --set config.leagueId=1 --set config.entryId=1 > /dev/null
+
   test:
     runs-on: ubuntu-latest
     steps:

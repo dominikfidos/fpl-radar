@@ -1,0 +1,6 @@
+# Settings for my local minikube cluster. Use with:
+#   helm install fpl-radar charts/fpl-radar -f charts/fpl-radar/values-minikube.yaml
+# These ids are public information (they are in the FPL page URLs), not secrets.
+config:
+  leagueId: "156486"
+  entryId: "4006393"

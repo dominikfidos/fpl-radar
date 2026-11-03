@@ -1,0 +1,14 @@
+FPL Radar installed as release "{{ .Release.Name }}".
+
+See the pods:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Open the app on http://127.0.0.1:8080/ :
+  kubectl port-forward svc/{{ include "fpl-radar.fullname" . }} 8080:{{ .Values.service.port }}
+
+Run the league refresh right now:
+  kubectl create job --from=cronjob/{{ include "fpl-radar.fullname" . }}-league-refresh league-manual
+{{- if not .Values.config.leagueId }}
+
+WARNING: config.leagueId is empty. Set it (and config.entryId) to use the league report.
+{{- end }}
