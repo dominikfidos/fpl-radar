@@ -10,9 +10,9 @@ The application is deliberately small. The point of the project is everything **
 
 > Data comes from the unofficial public Fantasy Premier League API. This project is not affiliated with the Premier League or Fantasy Premier League. The free hosting plan sleeps when idle, so the first request after a break can take up to a minute.
 
-<!-- TODO: add docs/web-ui.png and uncomment
+
 ![Web UI](docs/web-ui.png)
--->
+
 
 ## Architecture
 
@@ -119,9 +119,9 @@ docker compose --profile monitoring up --build -d
 
 Grafana: http://127.0.0.1:3000 (login `admin` / `admin`, change it for anything but local use). Prometheus: http://127.0.0.1:9090. Both ports are bound to `127.0.0.1` only. When the app is public, set `METRICS_TOKEN` so that `/metrics` requires a bearer token.
 
-<!-- TODO: add docs/grafana.png and uncomment
+
 ![Grafana dashboard](docs/grafana.png)
--->
+
 
 ## CI/CD
 
