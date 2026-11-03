@@ -2,57 +2,86 @@
 
 ![CI/CD](https://github.com/dominikfidos/fpl-radar/actions/workflows/ci-cd.yml/badge.svg)
 
-A small data service that tracks Fantasy Premier League players over time (price, form, points, ownership) and exposes the history through a REST API.
+**Live demo: https://fpl-radar.onrender.com**
 
-The application is deliberately simple. The point of the project is everything **around** it: containerisation, a CI/CD pipeline, and deployment to Kubernetes with health probes, scheduled jobs and autoscaling. It is a personal learning project built to practise a complete DevOps workflow end to end.
+FPL Radar helps you catch the managers above you in a Fantasy Premier League mini-league. Enter your league ID and team ID and it shows which players your rivals do **not** own but who are expected to score well, as concrete "sell X, buy Y" suggestions. It also tracks all players over time (price, form, points, ownership) and exposes the history through a REST API.
 
-> Data comes from the unofficial public Fantasy Premier League endpoint. This project is not affiliated with the Premier League.
+The application is deliberately small. The point of the project is everything **around** it: containers, a CI/CD pipeline with security checks, deployment to Kubernetes (plain manifests and a Helm chart), a public deployment, and monitoring. It is a personal learning project built to practise a complete DevOps workflow end to end.
+
+> Data comes from the unofficial public Fantasy Premier League API. This project is not affiliated with the Premier League or Fantasy Premier League. The free hosting plan sleeps when idle, so the first request after a break can take up to a minute.
+
+<!-- TODO: add docs/web-ui.png and uncomment
+![Web UI](docs/web-ui.png)
+-->
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   dev["Developer"] -->|git push| gh["GitHub"]
-  gh --> ci["GitHub Actions<br/>test, build, push"]
+  gh --> ci["GitHub Actions<br/>lint, test, scan, build"]
   ci --> ghcr[("GHCR<br/>container image")]
-  fpl["FPL public API"] --> cron
-  subgraph k8s["Kubernetes cluster (minikube)"]
-    svc["Service"] --> api["API Deployment<br/>2-6 pods + HPA"]
-    cron["CronJob<br/>collector, hourly"] --> pg[("PostgreSQL<br/>StatefulSet")]
-    api --> pg
+  gh -->|Dockerfile| render["Render<br/>public deployment"]
+  user["Visitor"] --> render
+  fpl["FPL public API"] --> render
+  fpl --> k8sapi
+  subgraph k8s["Kubernetes cluster (minikube, Helm chart)"]
+    svc["Service"] --> k8sapi["API Deployment<br/>2-6 pods + HPA"]
+    cron["CronJobs<br/>collector, league refresh"] --> pg[("PostgreSQL<br/>StatefulSet")]
+    k8sapi --> pg
   end
-  ghcr --> api
+  ghcr --> k8sapi
   ghcr --> cron
+  subgraph mon["Monitoring (Docker Compose)"]
+    prom["Prometheus"] --> graf["Grafana"]
+  end
+  prom -.->|scrapes /metrics| k8sapi
 ```
 
-The API and the collector are built from **one image** and differ only in the start command.
+The API, the web UI and the scheduled jobs are built from **one image** and differ only in the start command.
 
 ## Tech stack
 
 | Area | Tools |
 |---|---|
-| Application | Python 3.12, FastAPI, SQLAlchemy, PostgreSQL |
-| Containers | Docker (multi-stage build), Docker Compose |
-| CI/CD | GitHub Actions, GitHub Container Registry (GHCR) |
-| Orchestration | Kubernetes (minikube): Deployment, Service, StatefulSet, CronJob, Secret, HPA |
-| Tests | pytest |
+| Application | Python 3.12, FastAPI, SQLAlchemy, PostgreSQL (SQLite fallback), plain HTML/JS front end |
+| Containers | Docker (multi-stage build, non-root), Docker Compose |
+| CI/CD | GitHub Actions, GitHub Container Registry (GHCR), ruff, pytest + coverage, Trivy, Dependabot |
+| Orchestration | Kubernetes (minikube): Deployment, Service, StatefulSet, CronJob, ConfigMap, Secret, HPA; Helm chart |
+| Observability | Prometheus metrics, Grafana dashboard |
+| Hosting | Render (Docker runtime, health check on `/health`) |
+
+## Features
+
+### League differentials
+
+For one classic mini-league the report:
+
+1. reads the standings and finds your rank,
+2. fetches the squads of the managers above you (the top of the table, or the ones directly above you),
+3. computes **local ownership**: the share of those rivals who own each player,
+4. estimates expected points for the next gameweeks from xG, xA, expected goals conceded, minutes played, availability and fixture difficulty,
+5. ranks players by a **League Differential Score**: `expected points x (1 - uniqueness x local ownership)`, and suggests swaps that respect position, budget (selling price plus bank), the three-players-per-club limit and availability.
+
+The score is a transparent heuristic, not a prediction. Squads of other managers are hidden by FPL until the gameweek deadline, so the analysis uses the squads from the last deadline.
+
+### Player history
+
+The **collector** (`python -m app.collector`) downloads one JSON from the FPL API and stores a snapshot of every player. Each run adds a new snapshot, so price and form changes can be compared over time.
 
 ## API
 
 | Endpoint | Description |
 |---|---|
+| `GET /` | Web UI for the league report. |
+| `GET /api/league/report?league_id=…&entry_id=…` | League differential report (JSON). Optional: `rivals`, `mode` (`top` or `above`), `horizon`, `top`, `uniqueness`. Rate limited. |
 | `GET /health` | Liveness check. Does not touch the database on purpose. |
+| `GET /metrics` | Prometheus metrics. Optionally protected with a bearer token (`METRICS_TOKEN`). |
 | `GET /api/players/top?position=MID&limit=5` | Players in the best form (`GKP`, `DEF`, `MID`, `FWD`). |
 | `GET /api/players/{id}/history` | Price, form and ownership of one player over time. |
 | `GET /api/price-changes?hours=24` | Players whose price changed within the given window. |
 
 Interactive docs are available at `/docs`.
-
-## How it works
-
-1. The **collector** (`python -m app.collector`) downloads one JSON from the FPL endpoint and stores a snapshot of every player.
-2. Each run adds a new snapshot per player, so changes can be compared over time.
-3. The **API** reads the newest snapshots and the history from PostgreSQL.
 
 ## Run locally
 
@@ -63,8 +92,8 @@ python -m venv .venv
 pip install -r requirements.txt -r requirements-dev.txt
 
 python -m pytest                    # run tests
-python -m app.collector             # fetch data into a local SQLite file
-uvicorn app.main:app --reload       # http://127.0.0.1:8000/docs
+ruff check .                        # lint
+uvicorn app.main:app --reload       # http://127.0.0.1:8000/
 ```
 
 Without `DATABASE_URL` the app falls back to a local SQLite file.
@@ -74,22 +103,42 @@ Without `DATABASE_URL` the app falls back to a local SQLite file.
 ```bash
 cp .env.example .env                # then set your own password (letters and digits only)
 docker compose up --build -d
-docker compose run --rm collector   # fetch data into PostgreSQL
-curl "http://127.0.0.1:8000/api/players/top?limit=5"
+docker compose run --rm collector       # fetch player data into PostgreSQL
+docker compose run --rm league-refresh  # build the league report once (needs FPL_LEAGUE_ID and FPL_ENTRY_ID in .env)
 ```
 
-Data is kept on the `pgdata` volume and survives restarts. `docker compose down -v` removes it.
+Open http://127.0.0.1:8000/. Data is kept on the `pgdata` volume and survives restarts. `docker compose down -v` removes it.
+
+## Monitoring
+
+The API exposes Prometheus metrics at `/metrics`: request rate and latency per endpoint, 5xx share, FPL API lookups by outcome (cache hit, fetched, failed) and rate-limit rejections. A Grafana dashboard is provisioned automatically.
+
+```bash
+docker compose --profile monitoring up --build -d
+```
+
+Grafana: http://127.0.0.1:3000 (login `admin` / `admin`, change it for anything but local use). Prometheus: http://127.0.0.1:9090. Both ports are bound to `127.0.0.1` only. When the app is public, set `METRICS_TOKEN` so that `/metrics` requires a bearer token.
+
+<!-- TODO: add docs/grafana.png and uncomment
+![Grafana dashboard](docs/grafana.png)
+-->
 
 ## CI/CD
 
 Workflow: [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)
 
-On every push:
+| Job | What it does |
+|---|---|
+| **lint** | `ruff check` on the code and `helm lint` on the chart. |
+| **test** | Installs dependencies and runs pytest with a coverage report on a clean runner. |
+| **build-scan-push** | Builds the image on the runner, scans it with **Trivy** (a fixable HIGH or CRITICAL vulnerability fails the pipeline), and only on `main` pushes it to `ghcr.io/dominikfidos/fpl-radar` tagged with the branch name, the commit SHA and `latest`. |
 
-1. **test**: install dependencies and run pytest on a clean runner.
-2. **build-and-push** (only if tests pass): build the image with Buildx and push it to `ghcr.io/dominikfidos/fpl-radar`, tagged with the branch name, the commit SHA and `latest`.
+Security and hygiene:
 
-Permissions are least-privilege: read-only by default, `packages: write` only for the push job. Authentication uses the built-in `GITHUB_TOKEN`, so no secrets are stored in the repository.
+- Least-privilege permissions: read-only by default, `packages: write` only for the push job. Authentication uses the built-in `GITHUB_TOKEN`, so no secrets are stored in the repository.
+- Third-party actions are **pinned to commit SHAs**, not tags, because tags can be moved. Trivy runs from its official image in a known-good version instead of a third-party action, after the March 2026 compromise of the Trivy GitHub Action ([advisory](https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23)).
+- Dependabot opens weekly pull requests for Python packages, the base image and GitHub Actions.
+- The pipeline has already paid off: Trivy caught three HIGH vulnerabilities in a transitive dependency (Starlette), which were fixed by updating FastAPI.
 
 ## Deploy to Kubernetes (minikube)
 
@@ -105,13 +154,17 @@ kubectl create secret generic fpl-db \
 
 kubectl apply -f k8s/postgres.yaml
 kubectl rollout status statefulset/postgres
-kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml -f k8s/hpa.yaml -f k8s/cronjob.yaml
-
-kubectl create job --from=cronjob/fpl-collector fpl-collector-manual   # run the collector now
-kubectl port-forward svc/fpl-radar 8080:80                             # http://127.0.0.1:8080/docs
 ```
 
-The container image must be public in GHCR, otherwise pods cannot pull it without an image pull secret.
+Then deploy the application either with plain manifests or with the Helm chart.
+
+### Option 1: plain manifests
+
+```bash
+# put your ids into k8s/configmap.yaml first
+kubectl apply -f k8s/configmap.yaml -f k8s/deployment.yaml -f k8s/service.yaml -f k8s/hpa.yaml \
+              -f k8s/cronjob.yaml -f k8s/cronjob-league.yaml
+```
 
 | Manifest | Purpose |
 |---|---|
@@ -119,7 +172,30 @@ The container image must be public in GHCR, otherwise pods cannot pull it withou
 | `service.yaml` | Stable in-cluster address that routes only to ready pods |
 | `hpa.yaml` | Scales between 2 and 6 pods at 70% average CPU, with a 5-minute scale-down window |
 | `postgres.yaml` | PostgreSQL as a StatefulSet with a persistent volume |
+| `configmap.yaml` | Non-secret settings (league and team id) |
 | `cronjob.yaml` | Hourly collector run, no overlapping runs, limited retries |
+| `cronjob-league.yaml` | Daily league report refresh |
+
+### Option 2: Helm chart
+
+```bash
+helm lint charts/fpl-radar -f charts/fpl-radar/values-minikube.yaml
+helm install fpl-radar charts/fpl-radar -f charts/fpl-radar/values-minikube.yaml
+helm upgrade fpl-radar charts/fpl-radar -f charts/fpl-radar/values-minikube.yaml --set autoscaling.maxReplicas=4
+helm history fpl-radar
+helm rollback fpl-radar 1
+```
+
+The chart templates the same objects as the manifests above. Settings live in `values.yaml`, per-environment overrides in `values-*.yaml`, and the database password stays in the `fpl-db` Secret outside Git. A checksum annotation on the pods restarts them when the ConfigMap changes.
+
+Then:
+
+```bash
+kubectl create job --from=cronjob/fpl-radar-league-refresh league-manual   # with plain manifests: cronjob/fpl-league-refresh
+kubectl port-forward svc/fpl-radar 8080:80                                 # http://127.0.0.1:8080/
+```
+
+The container image must be public in GHCR, otherwise pods cannot pull it without an image pull secret.
 
 ### Autoscaling demo
 
@@ -134,19 +210,29 @@ CPU rises above the 70% target and the HPA adds pods. After the load stops, pods
 ![Green pipeline](docs/actions.png)
 ![HPA scaling](docs/hpa.png)
 
+## Public deployment
+
+The same Dockerfile is deployed on Render as a web service (free plan, SQLite instead of PostgreSQL because the database only holds a cache, `PORT=8000`, health check path `/health`). Because the service is public it has a per-client **rate limiter** (default 15 requests per minute for the report endpoint, `RATE_LIMIT_PER_MINUTE`) and caches FPL responses, so one visitor cannot make the server hammer the unofficial FPL API.
+
 ## Design decisions
 
 - **Multi-stage Dockerfile**: dependencies are installed in a builder stage, the runtime image contains only the finished virtual environment and the code, and runs as a non-root user.
 - **Separate liveness endpoint**: `/health` does not query the database, so a database outage does not make Kubernetes restart healthy API pods.
-- **One image, two roles**: the collector reuses the API image with a different command, which keeps the build simple.
+- **One image, several roles**: the API, the collector and the league refresh reuse the same image with different commands.
+- **Pure analysis code**: the scoring logic has no network or database access, so it is tested in isolation with fake data. The HTTP client is tested with a mock transport (retries, backoff, pagination, cache).
+- **Cache in the existing database instead of Redis**: for a few dozen requests per gameweek, one component less to run. Redis would be a natural upgrade for a shared rate limiter.
+- **Safe rendering**: team and manager names come from strangers, so the front end builds the page with `textContent` and never injects them as HTML.
+- **Low-cardinality metrics**: request metrics are labelled with the route template (`/api/players/{player_id}/history`), not the real URL, so the number of time series stays small.
 - **Secrets outside Git**: database credentials live in `.env` locally and in a Kubernetes Secret in the cluster.
-- **Tests as a gate**: the image is built only after tests pass.
+- **Gates before publishing**: the image is built and scanned after lint and tests, and pushed only from `main`.
 
 ## Known limitations and next steps
 
+- The rate limiter keeps its counters in memory, so with several replicas the limit applies per pod. A shared limiter would need Redis.
 - Tables are created at application start. A proper setup would use migrations (for example Alembic), which also avoids a startup race between replicas.
 - PostgreSQL runs inside the cluster for demo purposes. In production a managed database would be preferable.
-- The cluster is a local minikube setup, not a production environment.
-- No monitoring yet. Planned: Prometheus and Grafana dashboards for prices and API metrics.
+- The cluster is a local minikube setup, not a production environment, and Render's free plan sleeps when idle.
+- The score ignores captaincy, bonus points and penalties, and the analysis uses squads as of the last deadline.
 - Image tag `latest` is used for simplicity. In production an immutable `sha-` tag should be pinned.
-- The FPL endpoint is unofficial and may change without notice.
+- The FPL API is unofficial and may change or block requests without notice.
+- Ideas: captain suggestions, a multi-transfer planner with point hits, league history stored per gameweek, Terraform for the infrastructure.
