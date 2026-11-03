@@ -1,17 +1,20 @@
-# Dependabot opens a pull request when a dependency has a newer version.
-# Each PR runs the whole pipeline, so you see whether the update breaks anything.
-version: 2
-updates:
-  - package-ecosystem: pip
-    directory: "/"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-  - package-ecosystem: docker
-    directory: "/"
-    schedule:
-      interval: weekly
-  - package-ecosystem: github-actions
-    directory: "/"
-    schedule:
-      interval: weekly
+   version: 2
+   updates:
+     - package-ecosystem: pip
+       directory: "/"
+       schedule:
+         interval: weekly
+       groups:
+         python-deps:
+           patterns: ["*"]
+     - package-ecosystem: docker
+       directory: "/"
+       schedule:
+         interval: weekly
+     - package-ecosystem: github-actions
+       directory: "/"
+       schedule:
+         interval: weekly
+       groups:
+         actions:
+           patterns: ["*"]
