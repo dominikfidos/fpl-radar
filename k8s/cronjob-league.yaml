@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fpl-league-refresh
+spec:
+  schedule: "0 6 * * *"          # every day at 06:00 UTC (FPL squads are visible after each deadline)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+          containers:
+            - name: league-refresh
+              image: ghcr.io/dominikfidos/fpl-radar:latest
+              imagePullPolicy: Always
+              command: ["python", "-m", "app.league.refresh"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: fpl-db
+                      key: DATABASE_URL
+              envFrom:
+                - configMapRef:
+                    name: fpl-config
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]

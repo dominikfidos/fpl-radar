@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FPL Radar – league differentials</title>
+<meta name="description" content="Find Fantasy Premier League differentials that the managers above you in your mini-league do not own.">
+<style>
+  :root {
+    --bg: #f5f4fa; --card: #ffffff; --ink: #1c1730; --muted: #6a6585; --line: #e3e0ef;
+    --accent: #5b2bd9; --accent-ink: #ffffff; --good: #0f9d6b; --good-bg: #dcf5ea;
+    --warn-bg: #fff4d6; --bar: #cfc9e6; --bar-mine: #5b2bd9; --err-bg: #fde4e4; --err: #a11d1d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12101c; --card: #1c1930; --ink: #ece9f8; --muted: #a39dc2; --line: #302c4a;
+      --accent: #9b7bff; --accent-ink: #12101c; --good: #4ddba8; --good-bg: #163a2e;
+      --warn-bg: #3a3116; --bar: #3a3560; --bar-mine: #9b7bff; --err-bg: #3d1a1a; --err: #ff9b9b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 56px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  h1 { margin: 0; font-size: 1.7rem; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .tagline { margin: 4px 0 20px; color: var(--muted); }
+  h2 { font-size: 1.15rem; margin: 32px 0 4px; }
+  .hint { color: var(--muted); font-size: 0.9rem; margin: 0 0 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+  }
+  form { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  label { display: grid; gap: 4px; align-content: start; font-size: 0.9rem; font-weight: 600; }
+  label small { font-weight: 400; color: var(--muted); }
+  input, select {
+    font: inherit; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); width: 100%;
+  }
+  input[type=range] { padding: 0; accent-color: var(--accent); }
+  button {
+    font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  button:disabled { opacity: 0.6; cursor: progress; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .actions { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  details { margin-top: 14px; color: var(--muted); font-size: 0.92rem; }
+  details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 4px; word-break: break-all; }
+  #status { margin-top: 16px; }
+  .msg { padding: 12px 14px; border-radius: 10px; }
+  .msg.error { background: var(--err-bg); color: var(--err); }
+  .msg.info { background: var(--warn-bg); }
+  .summary { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  .pill { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 0.92rem; }
+  .pill b { color: var(--accent); }
+  .swap {
+    display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 0; border-top: 1px solid var(--line);
+  }
+  .swap:first-child { border-top: 0; }
+  .arrow { color: var(--muted); font-size: 1.3rem; }
+  .player strong { display: block; }
+  .player .sub { display: block; color: var(--muted); font-size: 0.84rem; }
+  .gain { background: var(--good-bg); color: var(--good); font-weight: 700; border-radius: 8px; padding: 4px 10px; white-space: nowrap; }
+  .out strong { text-decoration: line-through; text-decoration-color: var(--muted); }
+  .grid2 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .diff { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--card); }
+  .bars { display: grid; gap: 6px; }
+  .bar-row { display: grid; grid-template-columns: minmax(110px, 190px) 1fr 48px; gap: 10px; align-items: center; font-size: 0.9rem; }
+  .bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { background: var(--bg); border-radius: 6px; height: 16px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--bar); border-radius: 6px; }
+  .bar-row.mine .bar-fill { background: var(--bar-mine); }
+  .bar-row.mine .bar-name { font-weight: 700; }
+  .bar-count { text-align: right; color: var(--muted); }
+  .legend { display: flex; gap: 16px; font-size: 0.85rem; color: var(--muted); margin: 0 0 10px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: var(--bar); }
+  .dot.mine { background: var(--bar-mine); }
+  ul.notes { color: var(--muted); font-size: 0.9rem; padding-left: 20px; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 0.85rem; }
+  footer a { color: var(--accent); }
+  .lang { display: flex; gap: 6px; }
+  .lang button { padding: 4px 10px; }
+  .lang button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+  @media (max-width: 640px) {
+    .swap { grid-template-columns: 1fr; gap: 6px; }
+    .arrow { display: none; }
+    .gain { justify-self: start; }
+    .bar-row { grid-template-columns: 100px 1fr 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>FPL <span>Radar</span></h1>
+      <p class="tagline" data-i18n="tagline"></p>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" class="ghost" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" class="ghost" data-lang="pl" aria-pressed="false">PL</button>
+    </div>
+  </header>
+
+  <section class="card" aria-labelledby="form-title">
+    <form id="form">
+      <label><span data-i18n="league"></span>
+        <input id="league" name="league" inputmode="numeric" pattern="[0-9]+" required placeholder="156486">
+      </label>
+      <label><span data-i18n="entry"></span>
+        <input id="entry" name="entry" inputmode="numeric" pattern="[0-9]+" required placeholder="4006393">
+      </label>
+      <label><span data-i18n="rivals"></span>
+        <input id="rivals" name="rivals" type="number" min="1" max="10" value="5">
+      </label>
+      <label><span data-i18n="mode"></span>
+        <select id="mode" name="mode">
+          <option value="top" data-i18n="mode_top"></option>
+          <option value="above" data-i18n="mode_above"></option>
+        </select>
+      </label>
+      <label><span data-i18n="horizon"></span>
+        <input id="horizon" name="horizon" type="number" min="1" max="5" value="3">
+      </label>
+      <label><span>
+          <span data-i18n="uniqueness"></span>: <output id="uniq-out">0.5</output></span>
+        <input id="uniqueness" name="uniqueness" type="range" min="0" max="1" step="0.1" value="0.5">
+        <small data-i18n="uniqueness_hint"></small>
+      </label>
+      <div class="actions">
+        <button id="go" type="submit" data-i18n="analyse"></button>
+        <button id="copy" type="button" class="ghost" data-i18n="copy_link" hidden></button>
+      </div>
+    </form>
+    <details>
+      <summary data-i18n="where_ids"></summary>
+      <p data-i18n="where_ids_body"></p>
+      <p><code>fantasy.premierleague.com/leagues/<b>156486</b>/standings/c</code><br>
+         <code>fantasy.premierleague.com/entry/<b>4006393</b>/event/9</code></p>
+    </details>
+  </section>
+
+  <div id="status" role="status" aria-live="polite"></div>
+  <div id="result" hidden></div>
+
+  <footer>
+    <p data-i18n="disclaimer"></p>
+    <p><a href="https://github.com/dominikfidos/fpl-radar" rel="noopener">GitHub</a> ·
+       <a href="/docs" rel="noopener">API</a></p>
+  </footer>
+</div>
+
+<script>
+"use strict";
+const I18N = {
+  en: {
+    tagline: "Find players the managers above you in your mini-league do not own.",
+    league: "League ID", entry: "Your team ID", rivals: "Rivals to analyse", mode: "Which rivals?",
+    mode_top: "The top of the table", mode_above: "Directly above me",
+    horizon: "Gameweeks ahead", uniqueness: "Uniqueness",
+    uniqueness_hint: "0 = only expected points, 1 = strongly prefer players your rivals do not own",
+    analyse: "Analyse", copy_link: "Copy link", copied: "Copied!",
+    where_ids: "Where do I find my IDs?",
+    where_ids_body: "Open your mini-league and your own team on the FPL website. The numbers in the address bar are the IDs:",
+    loading: "Fetching squads from the FPL API… the first run can take 10–20 seconds.",
+    error_generic: "Something went wrong.", error_network: "Could not reach the server.",
+    rank: "Your rank", analysed: "Rivals analysed", squads: "Squads as of", bank: "Bank", ahead: "Gameweeks",
+    gw: "GW", sug_title: "Suggested transfers",
+    sug_hint: "Each one is a separate single transfer with its own target. Check the 3-players-per-club limit if you combine them.",
+    sug_none: "No better swap found within your budget.",
+    diff_title: "Hidden gems", diff_hint: "Strong players that few of your rivals own.",
+    cov_title: "Squad coverage", cov_hint: "How many of the analysed rivals own each player.",
+    cov_mine: "In your squad", cov_other: "Not in your squad", you: "you",
+    rivals_list: "Rivals analysed", pts: "xPts", owned: "owned by", of: "of", gain: "gain",
+    bench_note: "", notes: "Notes",
+    disclaimer: "Unofficial tool, not affiliated with the Premier League or Fantasy Premier League. It reads the public FPL API. Scores are a simple heuristic (xG/xA/xGC, minutes, fixtures), not a prediction. Nothing about you is stored except cached public FPL responses."
+  },
+  pl: {
+    tagline: "Znajdź zawodników, których nie mają rywale powyżej Ciebie w Twojej mini-lidze.",
+    league: "ID ligi", entry: "ID Twojej drużyny", rivals: "Ilu rywali analizować", mode: "Którzy rywale?",
+    mode_top: "Czołówka tabeli", mode_above: "Bezpośrednio nad mną",
+    horizon: "Kolejek do przodu", uniqueness: "Unikalność",
+    uniqueness_hint: "0 = tylko oczekiwane punkty, 1 = mocno premiuj zawodników, których nie mają rywale",
+    analyse: "Analizuj", copy_link: "Kopiuj link", copied: "Skopiowano!",
+    where_ids: "Gdzie znajdę swoje ID?",
+    where_ids_body: "Otwórz swoją mini-ligę i swoją drużynę na stronie FPL. Liczby w pasku adresu to właśnie ID:",
+    loading: "Pobieram składy z API FPL… pierwsze uruchomienie może potrwać 10–20 sekund.",
+    error_generic: "Coś poszło nie tak.", error_network: "Nie można połączyć się z serwerem.",
+    rank: "Twoje miejsce", analysed: "Przeanalizowani rywale", squads: "Składy z", bank: "Bank", ahead: "Kolejki",
+    gw: "GW", sug_title: "Proponowane transfery",
+    sug_hint: "Każdy to osobny pojedynczy transfer z własnym celem. Przy łączeniu pilnuj limitu 3 zawodników z klubu.",
+    sug_none: "Nie znaleziono lepszej zamiany w ramach budżetu.",
+    diff_title: "Ukryte perełki", diff_hint: "Mocni zawodnicy, których ma niewielu Twoich rywali.",
+    cov_title: "Pokrycie składów", cov_hint: "Ilu z analizowanych rywali ma danego zawodnika.",
+    cov_mine: "W Twoim składzie", cov_other: "Nie ma go w Twoim składzie", you: "Ty",
+    rivals_list: "Analizowani rywale", pts: "xPkt", owned: "ma", of: "z", gain: "zysk",
+    bench_note: "", notes: "Uwagi",
+    disclaimer: "Narzędzie nieoficjalne, niezwiązane z Premier League ani Fantasy Premier League. Korzysta z publicznego API FPL. Wyniki to prosta heurystyka (xG/xA/xGC, minuty, terminarz), nie przewidywanie. O Tobie nie zapisujemy nic poza zbuforowanymi, publicznymi odpowiedziami FPL."
+  }
+};
+
+let lang = "en";
+try { lang = localStorage.getItem("fpl-lang") || (navigator.language || "en").slice(0, 2); } catch (e) {}
+if (!I18N[lang]) lang = "en";
+const t = (k) => I18N[lang][k] ?? k;
+let lastReport = null;
+
+const $ = (id) => document.getElementById(id);
+
+// Build DOM with textContent only: team and manager names come from strangers.
+function el(tag, props, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") node.className = v; else node.setAttribute(k, v);
+  }
+  for (const c of children) node.append(c);
+  return node;
+}
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((n) => { n.textContent = t(n.dataset.i18n); });
+  document.querySelectorAll("[data-lang]").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  if (lastReport) render(lastReport);
+}
+
+const price = (p) => "£" + p.price.toFixed(1) + "m";
+
+function playerBlock(p, n, isOut) {
+  const owners = Math.round(p.ownership * n);
+  return el("div", { class: "player" + (isOut ? " out" : "") },
+    el("strong", {}, p.name),
+    el("span", { class: "sub" }, `${p.team} · ${p.position} · ${price(p)}`),
+    el("span", { class: "sub" }, `${t("pts")} ${p.expected_points.toFixed(1)} · ${t("owned")} ${owners} ${t("of")} ${n}`));
+}
+
+function section(title, hint) {
+  const box = el("section", {});
+  box.append(el("h2", {}, title));
+  if (hint) box.append(el("p", { class: "hint" }, hint));
+  return box;
+}
+
+function render(r) {
+  const out = $("result");
+  out.replaceChildren();
+  const n = r.meta.rivals.length;
+  const gws = r.meta.horizon_gws;
+
+  const summary = el("div", { class: "summary" });
+  const pill = (label, value) => el("span", { class: "pill" }, `${label}: `, el("b", {}, String(value)));
+  summary.append(
+    pill(t("rank"), "#" + r.meta.my_rank),
+    pill(t("analysed"), n),
+    pill(t("squads"), `${t("gw")}${r.meta.squad_as_of_gw}`),
+    pill(t("bank"), `£${r.meta.bank.toFixed(1)}m`),
+    pill(t("ahead"), gws.length ? `${gws[0]}–${gws[gws.length - 1]}` : "-"));
+  out.append(summary);
+
+  const rivals = el("details", {}, el("summary", {}, t("rivals_list")));
+  const list = el("ul", { class: "notes" });
+  r.meta.rivals.forEach((x) =>
+    list.append(el("li", {}, `#${x.rank} ${x.team} (${x.manager}) – ${x.total} pts`)));
+  rivals.append(list);
+  out.append(rivals);
+
+  const sug = section(t("sug_title"), t("sug_hint"));
+  const card = el("div", { class: "card" });
+  if (!r.suggestions.length) card.append(el("p", {}, t("sug_none")));
+  r.suggestions.forEach((s) => card.append(el("div", { class: "swap" },
+    playerBlock(s.out, n, true), el("span", { class: "arrow", "aria-hidden": "true" }, "→"),
+    playerBlock(s.in, n, false),
+    el("span", { class: "gain", title: t("gain") }, "+" + s.score_gain.toFixed(1)))));
+  sug.append(card);
+  out.append(sug);
+
+  const gems = section(t("diff_title"), t("diff_hint"));
+  const grid = el("div", { class: "grid2" });
+  r.differentials.forEach((p) => grid.append(el("div", { class: "diff" }, playerBlock(p, n, false))));
+  gems.append(grid);
+  out.append(gems);
+
+  const cov = section(t("cov_title"), t("cov_hint"));
+  cov.append(el("p", { class: "legend" },
+    el("span", {}, el("i", { class: "dot mine" }), t("cov_mine")),
+    el("span", {}, el("i", { class: "dot" }), t("cov_other"))));
+  const bars = el("div", { class: "bars" });
+  r.coverage.filter((row) => row.share > 0).slice(0, 20).forEach((row) => {
+    const fill = el("div", { class: "bar-fill" });
+    fill.style.width = Math.round(row.share * 100) + "%";
+    const name = el("span", { class: "bar-name", title: `${row.name} (${row.team})` },
+      row.name + (row.mine ? ` (${t("you")})` : ""));
+    bars.append(el("div", { class: "bar-row" + (row.mine ? " mine" : "") },
+      name, el("div", { class: "bar-track" }, fill),
+      el("span", { class: "bar-count" }, `${row.rivals_owning}/${n}`)));
+  });
+  cov.append(bars);
+  out.append(cov);
+
+  if (r.meta.notes.length) {
+    const notes = section(t("notes"));
+    const ul = el("ul", { class: "notes" });
+    r.meta.notes.forEach((x) => ul.append(el("li", {}, x)));
+    notes.append(ul);
+    out.append(notes);
+  }
+  out.hidden = false;
+}
+
+function params() {
+  const f = $("form");
+  return {
+    league_id: f.league.value.trim(), entry_id: f.entry.value.trim(),
+    rivals: f.rivals.value, mode: f.mode.value, horizon: f.horizon.value,
+    uniqueness: f.uniqueness.value,
+  };
+}
+
+function shareUrl() {
+  const p = params();
+  const u = new URL(location.href);
+  u.search = new URLSearchParams({ league: p.league_id, entry: p.entry_id, rivals: p.rivals,
+    mode: p.mode, horizon: p.horizon, u: p.uniqueness }).toString();
+  return u.toString();
+}
+
+function showStatus(kind, text) {
+  const s = $("status");
+  s.replaceChildren();
+  if (text) s.append(el("div", { class: "msg " + kind }, text));
+}
+
+async function analyse() {
+  const btn = $("go");
+  btn.disabled = true;
+  showStatus("info", t("loading"));
+  $("result").hidden = true;
+  try {
+    const res = await fetch("/api/league/report?" + new URLSearchParams(params()));
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      let msg = body.detail;
+      if (Array.isArray(msg)) msg = msg.map((d) => d.msg).join("; ");
+      showStatus("error", msg || t("error_generic"));
+      return;
+    }
+    showStatus("", "");
+    lastReport = body;
+    render(body);
+    history.replaceState(null, "", shareUrl());
+    $("copy").hidden = false;
+    try { localStorage.setItem("fpl-ids", JSON.stringify({ league: params().league_id, entry: params().entry_id })); } catch (e) {}
+  } catch (e) {
+    showStatus("error", t("error_network"));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("form").addEventListener("submit", (e) => { e.preventDefault(); analyse(); });
+$("uniqueness").addEventListener("input", (e) => { $("uniq-out").textContent = e.target.value; });
+$("copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(shareUrl()); $("copy").textContent = t("copied"); }
+  catch (e) { prompt("Link", shareUrl()); return; }
+  setTimeout(() => { $("copy").textContent = t("copy_link"); }, 1500);
+});
+document.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => {
+  lang = b.dataset.lang;
+  try { localStorage.setItem("fpl-lang", lang); } catch (e) {}
+  applyLang();
+}));
+
+// Fill the form from the link (?league=..&entry=..) or from the last visit.
+(function init() {
+  const q = new URLSearchParams(location.search);
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("fpl-ids") || "{}"); } catch (e) {}
+  const f = $("form");
+  f.league.value = q.get("league") || saved.league || "";
+  f.entry.value = q.get("entry") || saved.entry || "";
+  if (q.get("rivals")) f.rivals.value = q.get("rivals");
+  if (q.get("mode")) f.mode.value = q.get("mode");
+  if (q.get("horizon")) f.horizon.value = q.get("horizon");
+  if (q.get("u")) { f.uniqueness.value = q.get("u"); $("uniq-out").textContent = f.uniqueness.value; }
+  applyLang();
+  if (q.get("league") && q.get("entry")) analyse();
+})();
+</script>
+</body>
+</html>

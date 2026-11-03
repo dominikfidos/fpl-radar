@@ -36,6 +36,10 @@ spec:
                 secretKeyRef:
                   name: fpl-db
                   key: DATABASE_URL
+          envFrom:
+            - configMapRef:
+                name: fpl-config
+                optional: true
           resources:
             requests:        # used by the scheduler AND as the 100% baseline for the HPA
               cpu: 100m

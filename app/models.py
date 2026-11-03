@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import JSON, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -29,3 +30,13 @@ class Snapshot(Base):
     form: Mapped[float]
     total_points: Mapped[int]
     selected_by_percent: Mapped[float]
+
+
+class ApiCache(Base):
+    """Cached responses of the FPL API (key = request path)."""
+
+    __tablename__ = "api_cache"
+
+    key: Mapped[str] = mapped_column(String(300), primary_key=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payload: Mapped[Any] = mapped_column(JSON)

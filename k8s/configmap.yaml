@@ -1,0 +1,9 @@
+# Non-secret settings. Replace the placeholders with your numbers
+# (league id: the number in the URL of your mini-league page on the FPL site).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fpl-config
+data:
+  FPL_LEAGUE_ID: "REPLACE_WITH_LEAGUE_ID"
+  FPL_ENTRY_ID: "REPLACE_WITH_YOUR_TEAM_ID"

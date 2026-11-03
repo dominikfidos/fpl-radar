@@ -26,6 +26,8 @@ services:
     environment:
       # "db" is the service name; Docker's internal DNS resolves it on the shared network.
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      FPL_LEAGUE_ID: ${FPL_LEAGUE_ID:-}
+      FPL_ENTRY_ID: ${FPL_ENTRY_ID:-}
     ports:
       - "8000:8000"
     depends_on:
@@ -45,6 +47,26 @@ services:
     command: ["python", "-m", "app.collector"]
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+    profiles:
+      - tools
+
+  # One-off job: builds the league report once (warms the API cache), then exits.
+  #   docker compose run --rm league-refresh
+  league-refresh:
+    build:
+      context: .
+      target: runtime
+    image: devops-portfolio-api:local
+    command: ["python", "-m", "app.league.refresh"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      FPL_LEAGUE_ID: ${FPL_LEAGUE_ID:-}
+      FPL_ENTRY_ID: ${FPL_ENTRY_ID:-}
     depends_on:
       db:
         condition: service_healthy

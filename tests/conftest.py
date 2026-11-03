@@ -2,6 +2,7 @@ import os
 
 # Tests always use their own throw-away SQLite file, never a real database.
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["RATE_LIMIT_PER_MINUTE"] = "0"  # off by default; one test switches it on
 
 import pytest  # noqa: E402
 
