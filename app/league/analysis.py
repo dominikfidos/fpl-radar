@@ -36,6 +36,8 @@ AVERAGE_GOALS_CONCEDED_PER_90 = 1.3
 # rates are pulled towards a typical value for his position. After
 # PRIOR_MINUTES minutes his own numbers and the typical value count equally.
 PRIOR_MINUTES = 450
+# Each step of fixture difficulty away from 3 changes expected points by this share.
+FIXTURE_SLOPE = 0.12
 PRIOR_XG_PER_90 = {"GKP": 0.0, "DEF": 0.04, "MID": 0.12, "FWD": 0.30}
 PRIOR_XA_PER_90 = {"GKP": 0.01, "DEF": 0.06, "MID": 0.10, "FWD": 0.10}
 # A swap on the bench changes little (bench players rarely score), so it counts less.
@@ -68,11 +70,11 @@ def _per90(element: dict, per90_key: str, total_key: str) -> float | None:
 # --------------------------------------------------------------------------
 # Expected points
 # --------------------------------------------------------------------------
-def _shrink(rate: float | None, minutes: float, prior: float) -> float:
+def _shrink(rate: float | None, minutes: float, prior: float, prior_minutes: float = PRIOR_MINUTES) -> float:
     """Blend the player's own per-90 rate with a typical value (see PRIOR_MINUTES)."""
-    if rate is None:
+    if rate is None or minutes + prior_minutes <= 0:
         return prior
-    return (rate * minutes + prior * PRIOR_MINUTES) / (minutes + PRIOR_MINUTES)
+    return (rate * minutes + prior * prior_minutes) / (minutes + prior_minutes)
 
 
 def availability(element: dict) -> float:
@@ -95,10 +97,13 @@ def minutes_share(element: dict, played_gws: int) -> float:
     return max(0.0, min(1.0, _num(element.get("minutes")) / (90 * played_gws)))
 
 
-def expected_points_per_match(element: dict, played_gws: int) -> float:
+def expected_points_per_match(
+    element: dict, played_gws: int, prior_minutes: float = PRIOR_MINUTES
+) -> float:
     """Simplified expected FPL points in ONE average match.
 
     Ignores bonus points, saves, cards and penalties on purpose.
+    prior_minutes is only changed by the backtest, to try other values of PRIOR_MINUTES.
     """
     position = POSITIONS.get(element.get("element_type"), "MID")
     share = minutes_share(element, played_gws) * availability(element)
@@ -107,11 +112,11 @@ def expected_points_per_match(element: dict, played_gws: int) -> float:
 
     minutes = _num(element.get("minutes"))
     xg = _shrink(_per90(element, "expected_goals_per_90", "expected_goals"), minutes,
-                 PRIOR_XG_PER_90[position])
+                 PRIOR_XG_PER_90[position], prior_minutes)
     xa = _shrink(_per90(element, "expected_assists_per_90", "expected_assists"), minutes,
-                 PRIOR_XA_PER_90[position])
+                 PRIOR_XA_PER_90[position], prior_minutes)
     xgc = _shrink(_per90(element, "expected_goals_conceded_per_90", "expected_goals_conceded"),
-                  minutes, AVERAGE_GOALS_CONCEDED_PER_90)
+                  minutes, AVERAGE_GOALS_CONCEDED_PER_90, prior_minutes)
 
     points = APPEARANCE_POINTS + xg * GOAL_POINTS[position] + xa * ASSIST_POINTS
     if CLEAN_SHEET_POINTS[position]:
@@ -122,9 +127,9 @@ def expected_points_per_match(element: dict, played_gws: int) -> float:
     return share * points
 
 
-def fixture_multiplier(difficulty: int) -> float:
+def fixture_multiplier(difficulty: int, slope: float = FIXTURE_SLOPE) -> float:
     """FPL difficulty 1 (easy) .. 5 (hard). 3 is neutral."""
-    return max(0.5, min(1.5, 1 + (3 - difficulty) * 0.12))
+    return max(0.5, min(1.5, 1 + (3 - difficulty) * slope))
 
 
 def upcoming_difficulties(
@@ -322,6 +327,128 @@ def suggest_transfers(
     return suggestions
 
 
+TRANSFER_HIT = 4  # points lost for every transfer beyond the free ones
+PLANNER_POOL = 12  # best candidates per position that the planner tries
+
+
+@dataclass(frozen=True)
+class TransferPlan:
+    swaps: tuple[tuple[PlayerView, PlayerView], ...]  # (out, in) pairs
+    ep_gain: float
+    score_gain: float
+    hit: int
+    bank_after: float
+
+    @property
+    def net_ep(self) -> float:
+        return self.ep_gain - self.hit
+
+    @property
+    def net_score(self) -> float:
+        return self.score_gain - self.hit
+
+    def to_dict(self) -> dict:
+        return {
+            "transfers": len(self.swaps),
+            "swaps": [{"out": o.to_dict(), "in": i.to_dict()} for o, i in self.swaps],
+            "ep_gain": round(self.ep_gain, 2),
+            "score_gain": round(self.score_gain, 2),
+            "hit": self.hit,
+            "net_ep": round(self.net_ep, 2),
+            "net_score": round(self.net_score, 2),
+            # Verdict in real points: does the expected gain beat the cost of the extra transfers?
+            "worth_it": self.net_ep > 0,
+            # Separate question: is the plan good for climbing THIS league (LDS)?
+            "differential": self.net_score > 0,
+            "bank_after": round(self.bank_after, 1),
+        }
+
+
+def plan_transfers(
+    squad_ids: list[int],
+    views: dict[int, PlayerView],
+    bank: float,
+    *,
+    bench_ids: set[int] | None = None,
+    free_transfers: int = 1,
+    max_transfers: int = 2,
+    limit: int = 5,
+) -> list[TransferPlan]:
+    """Best plans of 1 or 2 transfers made together: `limit` per size, best first.
+
+    Unlike suggest_transfers, the budget is SHARED: bank + what you get for the
+    players sold must pay for all players bought. Rules checked for the whole plan:
+    every incoming player takes the position of an outgoing one, at most 3 players
+    per club afterwards, no player is used twice.
+    Every transfer beyond `free_transfers` costs TRANSFER_HIT points. A plan is
+    ranked by score (LDS) gain minus that cost. Two separate verdicts: `worth_it`
+    (expected points gain beats the cost) and `differential` (LDS gain beats it).
+    Swapping a bench player counts only BENCH_WEIGHT of the gain.
+    """
+    bench_ids = bench_ids or set()
+    squad = [views[i] for i in squad_ids if i in views]
+    owned = {p.id for p in squad}
+    club_counts = Counter(p.team_id for p in squad)
+    # money in tenths of a million, so that no float rounding can bite us
+    budget0 = round(bank * 10)
+
+    pools: dict[str, list[PlayerView]] = {}
+    for view in sorted(views.values(), key=lambda v: v.score, reverse=True):
+        if view.id in owned or view.expected_points <= 0:
+            continue
+        pool = pools.setdefault(view.position, [])
+        if len(pool) < PLANNER_POOL:
+            pool.append(view)
+
+    def weight(out: PlayerView) -> float:
+        return BENCH_WEIGHT if out.id in bench_ids else 1.0
+
+    def evaluate(outs: tuple[PlayerView, ...], ins: tuple[PlayerView, ...]) -> TransferPlan | None:
+        budget = budget0 + sum(round(o.price * 10) for o in outs) - sum(round(i.price * 10) for i in ins)
+        if budget < 0:
+            return None
+        clubs = Counter(club_counts)
+        for o in outs:
+            clubs[o.team_id] -= 1
+        for i in ins:
+            clubs[i.team_id] += 1
+        if any(count > MAX_PER_CLUB for count in clubs.values()):
+            return None
+        swaps = tuple(zip(outs, ins, strict=True))
+        ep_gain = sum((i.expected_points - o.expected_points) * weight(o) for o, i in swaps)
+        score_gain = sum((i.score - o.score) * weight(o) for o, i in swaps)
+        if score_gain <= 0:
+            return None
+        hit = TRANSFER_HIT * max(0, len(outs) - free_transfers)
+        return TransferPlan(swaps, ep_gain, score_gain, hit, budget / 10)
+
+    plans: list[TransferPlan] = []
+    for out in squad:
+        for cand in pools.get(out.position, []):
+            if (plan := evaluate((out,), (cand,))) is not None:
+                plans.append(plan)
+
+    if max_transfers >= 2:
+        for a_index, out_a in enumerate(squad):
+            for out_b in squad[a_index + 1:]:
+                for in_a in pools.get(out_a.position, []):
+                    for in_b in pools.get(out_b.position, []):
+                        if in_a.id == in_b.id:
+                            continue
+                        plan = evaluate((out_a, out_b), (in_a, in_b))
+                        # A pair is only interesting if BOTH swaps help; otherwise the
+                        # single better transfer is the real plan and the pair just pays a hit.
+                        if plan is not None and all(i.score > o.score for o, i in plan.swaps):
+                            plans.append(plan)
+
+    plans.sort(key=lambda p: p.net_score, reverse=True)
+    # `limit` plans for each size, so that good pairs are not crowded out by singles.
+    result: list[TransferPlan] = []
+    for size in range(1, max_transfers + 1):
+        result.extend([p for p in plans if len(p.swaps) == size][:limit])
+    return result
+
+
 def top_differentials(
     views: dict[int, PlayerView],
     owned_ids: set[int],
@@ -361,4 +488,231 @@ def coverage(
             }
         )
     rows.sort(key=lambda r: (-r["share"], r["name"]))
+    return rows
+
+
+# --------------------------------------------------------------------------
+# Captaincy
+# --------------------------------------------------------------------------
+# A captain scores double, so the pick matters more than any single transfer.
+# Copying the captain most rivals choose gains you nothing against them, but
+# bailing out of the obvious captain is a gamble. That is why we show TWO picks:
+# the "safe" one (most expected points) and the "differential" one (expected points,
+# reduced a little when many rivals captain the same player).
+CAPTAIN_UNIQUENESS_FACTOR = 0.5
+
+
+def captain_of(picks_response: dict) -> int | None:
+    """Element id of the captain in one squad (None if the data has no captain flag)."""
+    for pick in picks_response.get("picks", []):
+        if pick.get("is_captain"):
+            return pick["element"]
+    return None
+
+
+def captain_share(captains: list[int | None]) -> dict[int, float]:
+    """Share (0..1) of the given squads that captain each player."""
+    known = [c for c in captains if c is not None]
+    if not known:
+        return {}
+    return {pid: n / len(captains) for pid, n in Counter(known).items()}
+
+
+@dataclass(frozen=True)
+class CaptainOption:
+    player: PlayerView  # expected_points = expected points in the NEXT gameweek only
+    rival_share: float
+    score: float
+
+    def to_dict(self) -> dict:
+        data = self.player.to_dict()
+        data.pop("ownership", None)
+        data.pop("score", None)
+        data["captain_points"] = round(2 * self.player.expected_points, 2)
+        data["rival_captain_share"] = round(self.rival_share, 2)
+        data["captain_score"] = round(self.score, 2)
+        return data
+
+
+def captain_options(
+    squad_ids: list[int],
+    next_gw_views: dict[int, PlayerView],
+    rival_captains: dict[int, float],
+    uniqueness: float = 0.5,
+    limit: int = 5,
+) -> list[CaptainOption]:
+    """Players of your squad who are expected to play, best captain candidates first."""
+    options = []
+    for pid in squad_ids:
+        view = next_gw_views.get(pid)
+        if view is None or view.expected_points <= 0:
+            continue
+        share = rival_captains.get(pid, 0.0)
+        score = view.expected_points * max(0.0, 1.0 - uniqueness * CAPTAIN_UNIQUENESS_FACTOR * share)
+        options.append(CaptainOption(view, share, score))
+    options.sort(key=lambda o: o.score, reverse=True)
+    return options[:limit]
+
+
+# --------------------------------------------------------------------------
+# Fixture ticker, blank and double gameweeks
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Price change watch
+# --------------------------------------------------------------------------
+# FPL does not publish how prices move, so this is a transparent ESTIMATE:
+#   pressure = net transfers this gameweek (in - out) / 1% of all managers.
+# Prices tend to rise when many more managers buy than sell. A pressure of 1.0 means
+# "net buying equals 1% of all managers". The two limits below are rough guesses
+# to be tuned against real price changes, not facts about FPL's secret formula.
+RISE_PRESSURE = 1.0
+WATCH_PRESSURE = 0.5
+DEFAULT_TOTAL_MANAGERS = 10_000_000
+
+
+def price_pressure(element: dict, total_managers: int) -> float:
+    net = _num(element.get("transfers_in_event")) - _num(element.get("transfers_out_event"))
+    one_percent = max(total_managers, 1) / 100
+    return net / one_percent
+
+
+def price_status(pressure: float) -> str | None:
+    if pressure >= RISE_PRESSURE:
+        return "rise"
+    if pressure >= WATCH_PRESSURE:
+        return "watch_rise"
+    if pressure <= -RISE_PRESSURE:
+        return "fall"
+    if pressure <= -WATCH_PRESSURE:
+        return "watch_fall"
+    return None
+
+
+def price_watch(
+    elements: list[dict],
+    views: dict[int, PlayerView],
+    total_managers: int,
+    my_squad: set[int],
+    limit: int = 10,
+) -> dict:
+    """Players whose price is likely to move, and which of them are in your squad."""
+    rows = []
+    for element in elements:
+        view = views.get(element["id"])
+        if view is None:
+            continue
+        pressure = price_pressure(element, total_managers)
+        status = price_status(pressure)
+        if status is None:
+            continue
+        rows.append(
+            {
+                "id": view.id,
+                "name": view.name,
+                "team": view.team,
+                "position": view.position,
+                "price": view.price,
+                "net_transfers": int(_num(element.get("transfers_in_event"))
+                                     - _num(element.get("transfers_out_event"))),
+                "pressure": round(pressure, 2),
+                "status": status,
+                "owned_percent": _num(element.get("selected_by_percent")),
+                # already moved this gameweek: a second move is less likely soon
+                "changed_this_gw": _num(element.get("cost_change_event")) != 0,
+                "expected_points": round(view.expected_points, 2),
+                "mine": view.id in my_squad,
+            }
+        )
+    risers = sorted((r for r in rows if r["pressure"] > 0), key=lambda r: -r["pressure"])
+    fallers = sorted((r for r in rows if r["pressure"] < 0), key=lambda r: r["pressure"])
+    return {
+        "rise_pressure": RISE_PRESSURE,
+        "watch_pressure": WATCH_PRESSURE,
+        "risers": risers[:limit],
+        "fallers": fallers[:limit],
+        "my_falling": [r for r in fallers if r["mine"]],
+        "my_rising": [r for r in risers if r["mine"]],
+    }
+
+
+def team_fixtures(
+    fixtures: list[dict], first_event: int, horizon: int
+) -> dict[int, dict[int, list[dict]]]:
+    """team_id -> gameweek -> list of {opponent, home, difficulty} (one per match)."""
+    last_event = first_event + horizon - 1
+    result: dict[int, dict[int, list[dict]]] = {}
+    for fixture in fixtures:
+        event = fixture.get("event")
+        if event is None or not (first_event <= event <= last_event):
+            continue
+        sides = (
+            (fixture["team_h"], fixture["team_a"], True, fixture.get("team_h_difficulty")),
+            (fixture["team_a"], fixture["team_h"], False, fixture.get("team_a_difficulty")),
+        )
+        for team, opponent, home, difficulty in sides:
+            result.setdefault(team, {}).setdefault(event, []).append(
+                {"opponent": opponent, "home": home, "difficulty": difficulty or 3}
+            )
+    return result
+
+
+def special_gameweeks(
+    all_team_ids: list[int], by_team: dict[int, dict[int, list[dict]]], gameweeks: list[int]
+) -> dict[str, dict[int, list[int]]]:
+    """Teams with no match (blank) or two or more matches (double) in each gameweek.
+
+    A gameweek in which NO team has a fixture is skipped: it is simply not scheduled yet,
+    which is different from a real blank.
+    """
+    blank: dict[int, list[int]] = {}
+    double: dict[int, list[int]] = {}
+    for gw in gameweeks:
+        if not any(gw in games for games in by_team.values()):
+            continue
+        for team in all_team_ids:
+            count = len(by_team.get(team, {}).get(gw, []))
+            if count == 0:
+                blank.setdefault(gw, []).append(team)
+            elif count >= 2:
+                double.setdefault(gw, []).append(team)
+    return {"blank": blank, "double": double}
+
+
+def fixture_ticker(
+    squad: list[PlayerView],
+    by_team: dict[int, dict[int, list[dict]]],
+    team_names: dict[int, str],
+    gameweeks: list[int],
+) -> list[dict]:
+    """One row per club in your squad, easiest run of fixtures first."""
+    players_by_team: dict[int, list[str]] = {}
+    for view in squad:
+        players_by_team.setdefault(view.team_id, []).append(view.name)
+
+    rows = []
+    for team_id, names in players_by_team.items():
+        games = by_team.get(team_id, {})
+        difficulties = [m["difficulty"] for gw in gameweeks for m in games.get(gw, [])]
+        rows.append(
+            {
+                "team": team_names.get(team_id, "?"),
+                "players": sorted(names),
+                "avg_difficulty": round(sum(difficulties) / len(difficulties), 2) if difficulties else None,
+                "gameweeks": [
+                    {
+                        "gw": gw,
+                        "matches": [
+                            {
+                                "opponent": team_names.get(m["opponent"], "?"),
+                                "home": m["home"],
+                                "difficulty": m["difficulty"],
+                            }
+                            for m in games.get(gw, [])
+                        ],
+                    }
+                    for gw in gameweeks
+                ],
+            }
+        )
+    rows.sort(key=lambda r: (r["avg_difficulty"] is None, r["avg_difficulty"] or 0, r["team"]))
     return rows

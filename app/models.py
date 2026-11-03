@@ -32,6 +32,26 @@ class Snapshot(Base):
     selected_by_percent: Mapped[float]
 
 
+class RankHistory(Base):
+    """A manager's place in a mini-league after one finished gameweek.
+
+    Rank is counted among the managers we track (the top of the league plus you),
+    from their total points after that gameweek. Ties share a rank.
+    """
+
+    __tablename__ = "rank_history"
+
+    league_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    entry_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    event: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)  # gameweek number
+    rank: Mapped[int]
+    total_points: Mapped[int]
+    event_points: Mapped[int]
+    team: Mapped[str | None] = mapped_column(String(100))
+    manager: Mapped[str | None] = mapped_column(String(100))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class ApiCache(Base):
     """Cached responses of the FPL API (key = request path)."""
 

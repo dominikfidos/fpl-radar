@@ -33,6 +33,9 @@ WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app app ./app
+# Database migrations (Alembic). The app applies them itself on start (see app/migrate.py).
+COPY --chown=app:app alembic.ini ./
+COPY --chown=app:app migrations ./migrations
 
 USER 10001
 

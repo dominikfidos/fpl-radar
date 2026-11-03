@@ -6,18 +6,19 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.database import Base, engine, get_db
+from app.database import get_db
 from app.league.router import router as league_router
 from app.metrics import router as metrics_router
 from app.metrics import track_requests
+from app.migrate import migrate_on_startup
 from app.models import Player, Snapshot
 from app.web import router as web_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Runs once on startup: create the tables if they do not exist yet.
-    Base.metadata.create_all(bind=engine)
+    # Runs once on startup: bring the database schema up to date (Alembic migrations).
+    migrate_on_startup()
     yield
 
 

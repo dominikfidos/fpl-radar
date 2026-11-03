@@ -10,15 +10,27 @@
     --bg: #f5f4fa; --card: #ffffff; --ink: #1c1730; --muted: #6a6585; --line: #e3e0ef;
     --accent: #5b2bd9; --accent-ink: #ffffff; --good: #0f9d6b; --good-bg: #dcf5ea;
     --warn-bg: #fff4d6; --bar: #cfc9e6; --bar-mine: #5b2bd9; --err-bg: #fde4e4; --err: #a11d1d;
+    --d1: #bfeed6; --d2: #dcf3c8; --d3: #ecebf3; --d4: #fbd5bd; --d5: #f6b3b3;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #12101c; --card: #1c1930; --ink: #ece9f8; --muted: #a39dc2; --line: #302c4a;
       --accent: #9b7bff; --accent-ink: #12101c; --good: #4ddba8; --good-bg: #163a2e;
       --warn-bg: #3a3116; --bar: #3a3560; --bar-mine: #9b7bff; --err-bg: #3d1a1a; --err: #ff9b9b;
+      --d1: #15523a; --d2: #2d4d1f; --d3: #33304d; --d4: #5c3a20; --d5: #662626;
     }
   }
   * { box-sizing: border-box; }
+  :root { color-scheme: light dark; }
+  /* Slim scrollbars in the page palette (Firefox first, then Chrome/Edge/Safari). */
+  * { scrollbar-width: thin; scrollbar-color: var(--bar) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--bar); border-radius: 999px; border: 2px solid transparent; background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
+  *::-webkit-scrollbar-corner { background: transparent; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -88,6 +100,93 @@
   .lang { display: flex; gap: 6px; }
   .lang button { padding: 4px 10px; }
   .lang button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+  .tabs { display: flex; gap: 2px; margin-top: 22px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tabs button {
+    background: transparent; color: var(--muted); border-radius: 8px 8px 0 0; padding: 10px 14px;
+    border: 0; border-bottom: 3px solid transparent; white-space: nowrap; box-shadow: none; cursor: pointer;
+  }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected=true] { color: var(--accent); border-bottom-color: var(--accent); }
+  .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .panel { padding-top: 4px; }
+  .panel:focus { outline: none; }
+  .panel > section > h2:first-child { margin-top: 18px; }
+  .cap-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .cap-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .cap-card h3 { margin: 0 0 4px; font-size: 0.78rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  .cap-name { font-size: 1.25rem; font-weight: 700; }
+  .cap-card .sub { display: block; color: var(--muted); font-size: 0.86rem; }
+  .scroll { overflow-x: auto; }
+  tr.me-row td, tr.me-row th { background: var(--good-bg); font-weight: 700; }
+  .up { color: var(--good); } .down { color: var(--err); }
+  /* Rank history chart: you in the accent colour, everybody else a recessive grey. */
+  .rc { position: relative; margin: 6px 0 10px; }
+  .rc svg { display: block; max-width: 100%; overflow: visible; }
+  .rc svg:focus-visible { outline-offset: 4px; }
+  .rc-grid { stroke: var(--line); stroke-width: 1; }
+  .rc-tick { fill: var(--muted); font-size: 12px; }
+  .rc-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .rc-line.other { stroke: var(--muted); opacity: 0.45; }
+  .rc-line.me { stroke: var(--accent); }
+  .rc-dot { stroke: var(--card); stroke-width: 2; }
+  .rc-dot.me { fill: var(--accent); } .rc-dot.other { fill: var(--muted); }
+  .rc-label { fill: var(--muted); font-size: 12px; } .rc-label.me { fill: var(--ink); font-weight: 700; }
+  .rc-cross { stroke: var(--muted); stroke-width: 1; opacity: 0.6; pointer-events: none; }
+  .rc-tip { position: absolute; z-index: 2; pointer-events: none; background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 0.85rem;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); max-width: 260px; }
+  .rc-tip-head { color: var(--muted); font-size: 0.78rem; margin-bottom: 4px; }
+  .rc-tip-row { display: flex; gap: 8px; align-items: baseline; white-space: nowrap; }
+  .rc-tip-row span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .rc-tip-row.me span { color: var(--ink); }
+  .key { display: inline-block; width: 16px; height: 2px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+  .key.me { background: var(--accent); } .key.other { background: var(--muted); opacity: 0.6; }
+  .rc-tip-row .key { flex: none; align-self: center; margin-right: 0; }
+  .rc-legend { margin-top: 12px; }
+  .riv { margin-top: 12px; display: grid; gap: 10px; }
+  .riv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .riv-head .sub { display: block; color: var(--muted); font-size: 0.84rem; }
+  .riv-rank { text-align: right; font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+  .riv-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 4px 12px; font-size: 0.92rem; align-items: start; }
+  .riv-label { color: var(--muted); }
+  .riv-value { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .riv-moves { display: grid; gap: 8px; width: 100%; }
+  .riv-gw { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; align-items: start; }
+  .riv-gw b { color: var(--accent); padding-top: 3px; }
+  .riv-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill-move { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 2px 9px; font-size: 0.86rem; white-space: nowrap; }
+  .pill-move s { color: var(--muted); }
+  @media (max-width: 640px) { .riv-row { grid-template-columns: 1fr; } }
+  .plan { margin-top: 10px; }
+  .plan-title { margin: 0 0 2px; font-size: 0.78rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  .plan-sum { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; font-size: 0.9rem; color: var(--muted); }
+  .gain.bad { background: var(--err-bg); color: var(--err); }
+  .gain.warn { background: var(--warn-bg); color: var(--ink); }
+  .pricetbl td .sub { display: block; color: var(--muted); font-size: 0.78rem; font-weight: 400; }
+  .pricetbl td { vertical-align: top; }
+  .layout { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .live .card { padding: 4px 14px 14px; }
+  .live h2 { margin-top: 24px; }
+  .live-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .live-head .hint { margin: 0; }
+  .live td .sub { display: block; color: var(--muted); font-size: 0.78rem; font-weight: 400; }
+  .live-table td { vertical-align: top; }
+  @media (min-width: 1100px) {
+    .wrap { max-width: 1400px; }
+    .layout { grid-template-columns: minmax(0, 1fr) 460px; }
+    .live { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { padding: 6px 8px; text-align: left; border-top: 1px solid var(--line); vertical-align: middle; }
+  thead th { border-top: 0; color: var(--muted); font-weight: 600; }
+  th[scope=row] .sub { display: block; color: var(--muted); font-size: 0.78rem; font-weight: 400; }
+  .ticker td { white-space: nowrap; }
+  .fx { display: inline-block; margin: 1px 3px 1px 0; padding: 3px 8px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; }
+  .fx.d1 { background: var(--d1); } .fx.d2 { background: var(--d2); } .fx.d3 { background: var(--d3); }
+  .fx.d4 { background: var(--d4); } .fx.d5 { background: var(--d5); }
+  .fx.blank { color: var(--muted); font-weight: 400; background: transparent; border: 1px dashed var(--line); }
+  .legend .fx { margin: 0 2px 0 0; padding: 1px 8px; }
+  .msg.info + .msg.info { margin-top: 6px; }
   @media (max-width: 640px) {
     .swap { grid-template-columns: 1fr; gap: 6px; }
     .arrow { display: none; }
@@ -129,6 +228,9 @@
       <label><span data-i18n="horizon"></span>
         <input id="horizon" name="horizon" type="number" min="1" max="5" value="3">
       </label>
+      <label><span data-i18n="free_transfers"></span>
+        <input id="free" name="free" type="number" min="0" max="5" value="1">
+      </label>
       <label><span>
           <span data-i18n="uniqueness"></span>: <output id="uniq-out">0.5</output></span>
         <input id="uniqueness" name="uniqueness" type="range" min="0" max="1" step="0.1" value="0.5">
@@ -148,7 +250,10 @@
   </section>
 
   <div id="status" role="status" aria-live="polite"></div>
-  <div id="result" hidden></div>
+  <div class="layout">
+    <div id="result" hidden></div>
+    <aside id="live" class="live" aria-label="Live league table" hidden></aside>
+  </div>
 
   <footer>
     <p data-i18n="disclaimer"></p>
@@ -180,6 +285,64 @@ const I18N = {
     cov_mine: "In your squad", cov_other: "Not in your squad", you: "you",
     rivals_list: "Rivals analysed", pts: "xPts", owned: "owned by", of: "of", gain: "gain",
     bench_note: "", notes: "Notes",
+    cap_title: "Captain pick", cap_hint: "Captain scores double. Based on expected points in the next gameweek",
+    cap_safe: "Safe pick", cap_diff: "Differential pick", cap_both: "Both picks agree",
+    cap_points: "as captain", cap_rivals: "captained by rivals", cap_none: "No captain candidate found.",
+    cap_options: "Other options",
+    tab_transfers: "Transfers", tab_captain: "Captain", tab_fixtures: "Fixtures", tab_gems: "Hidden gems",
+    tab_coverage: "Coverage", tab_info: "Info", tabs_label: "Report sections",
+    fx_title: "Fixtures of your clubs", fx_hint: "Easiest run first. 1 = easy, 5 = hard. H = home, A = away.",
+    fx_club: "Club", fx_blank_cell: "no match", fx_double: "Double gameweek", fx_blank: "Blank gameweek",
+    free_transfers: "Free transfers",
+    tab_model: "Model", bt_title: "How good is the model?",
+    bt_hint: "A backtest: for each played gameweek the model predicts points using only the weeks before it, and we compare with what players really scored.",
+    bt_loading: "Replaying the season… the first run can take 10–30 seconds, afterwards it is cached.",
+    bt_wins: "The model beats the simple guess ‘average points per week so far’", bt_loses: "The model does NOT beat the simple guess yet",
+    bt_summary: "Model vs simple guess", bt_model: "Our model", bt_baseline: "Simple guess (avg points per week)",
+    bt_corr: "Correlation", bt_corr_hint: "1 = perfect, 0 = no relationship with real points",
+    bt_top10: "Top 10 pts", bt_top10_hint: "Average real points of the 10 players it ranks highest",
+    bt_mae: "Avg error", bt_mae_hint: "Average distance between prediction and real points (lower is better)",
+    bt_bias: "Bias", bt_bias_hint: "Average prediction minus real points (negative = predicts too low)",
+    bt_sample: "Sample", bt_pairs: "player-gameweeks",
+    bt_explain: "Correlation and average error are the reliable numbers; ‘Top 10’ rests on few players and jumps around.",
+    bt_per_gw: "Gameweek by gameweek", bt_gw: "Gameweek", bt_players: "Players", bt_corr_model: "Corr. model", bt_corr_base: "Corr. simple",
+    bt_top_model: "Top 10 model", bt_top_base: "Top 10 simple",
+    bt_tuning: "Can the constants be tuned?",
+    bt_tuning_hint: "Each table changes ONE constant and keeps the rest. ★ = best correlation. If the differences are tiny, the current value is fine.",
+    bt_current: "in use", bt_value: "Value", bt_best: "Best", bt_slope: "Fixture difficulty step",
+    tab_history: "History", hist_title: "League rank by gameweek",
+    hist_hint: "Place in your league after each finished gameweek (1 = top). Rebuilt from public FPL data and stored in the database.",
+    hist_loading: "Rebuilding the history… the first time can take a few seconds, afterwards it is instant.",
+    hist_empty: "No finished gameweek yet, so there is no history.", hist_you: "You", hist_others: "Other managers",
+    hist_now: "Now", hist_best: "Your best", hist_table: "Table view", hist_manager: "Manager",
+    hist_aria: "Use the arrow keys to move between gameweeks.",
+    hist_note: "Places are counted among the {n} tracked managers (the top of the league and you).",
+    tab_prices: "Prices", pr_title: "Price changes",
+    pr_hint: "Estimate of who may get more expensive or cheaper tonight, from this gameweek's net transfers. FPL does not publish its exact formula.",
+    pr_scale: "Pressure = net transfers as a share of 1% of all managers. From {watch} a player is worth watching, from {rise} a change is likely. The limits are rough guesses, not facts.",
+    pr_risers: "Likely to rise (buy before)", pr_fallers: "Likely to fall (sell before)",
+    pr_none: "Nobody above the watch limit right now.",
+    pr_my_falling: "Players in your squad that may get cheaper", pr_my_rising: "Players in your squad that may get more expensive",
+    pr_player: "Player", pr_net: "Net transfers", pr_pressure: "Pressure", pr_status: "Signal",
+    pr_rise: "Likely rise", pr_watch_rise: "Watch ↑", pr_fall: "Likely fall", pr_watch_fall: "Watch ↓",
+    pr_moved: "already moved this GW",
+    tab_rivals: "Rivals", riv_title: "What your rivals do",
+    riv_hint: "Captains are as of the current gameweek's deadline. Transfers are public in FPL once made.",
+    riv_loading: "Loading rivals… this can take a few seconds.", riv_none: "No rivals above you.",
+    riv_captain: "Captain", riv_active: "chip now", riv_chips: "Chips used", riv_no_chips: "none yet",
+    riv_transfers: "Recent transfers", riv_no_transfers: "none", riv_bought: "Bought by rivals", riv_sold: "Sold by rivals",
+    riv_last: "last", riv_gws: "GW", pts_short: "pts",
+    plan_title: "Transfer planner",
+    plan_hint: "Plans of 1–2 transfers made together: shared budget, max 3 players per club.",
+    plan_hit: "cost per extra transfer", plan_none: "No plan with a positive gain found.",
+    plan_transfer: "transfer", plan_transfers: "transfers",
+    plan_yes: "Worth it in points", plan_no: "Not worth it in points",
+    plan_diff_yes: "Good differential", plan_diff_no: "Weak differential",
+    plan_ep: "xPts gain − cost", plan_net: "Net LDS",
+    live_note: "Automatic substitutions are not applied until FPL confirms them after the gameweek. Refreshes every minute.",
+    live_title: "Live league table", live_hint: "Points of the running gameweek (players × captain multiplier − transfer cost). Cached for about a minute.",
+    live_refresh: "Refresh", live_loading: "Loading live points…", live_pos: "#", live_team: "Team", live_gw: "GW pts",
+    live_total: "Total", live_gap: "vs you", live_shown: "Showing the top", live_of: "of", live_finished: "This gameweek is finished.",
     disclaimer: "Unofficial tool, not affiliated with the Premier League or Fantasy Premier League. It reads the public FPL API. Scores are a simple heuristic (xG/xA/xGC, minutes, fixtures), not a prediction. Nothing about you is stored except cached public FPL responses."
   },
   pl: {
@@ -202,6 +365,64 @@ const I18N = {
     cov_mine: "W Twoim składzie", cov_other: "Nie ma go w Twoim składzie", you: "Ty",
     rivals_list: "Analizowani rywale", pts: "xPkt", owned: "ma", of: "z", gain: "zysk",
     bench_note: "", notes: "Uwagi",
+    cap_title: "Wybór kapitana", cap_hint: "Kapitan zdobywa podwójne punkty. Na podstawie oczekiwanych punktów w najbliższej kolejce",
+    cap_safe: "Pewny wybór", cap_diff: "Wybór różnicujący", cap_both: "Oba wybory się zgadzają",
+    cap_points: "jako kapitan", cap_rivals: "kapitanem u rywali", cap_none: "Nie znaleziono kandydata na kapitana.",
+    cap_options: "Pozostałe opcje",
+    tab_transfers: "Transfery", tab_captain: "Kapitan", tab_fixtures: "Terminarz", tab_gems: "Perełki",
+    tab_coverage: "Pokrycie", tab_info: "Info", tabs_label: "Sekcje raportu",
+    fx_title: "Terminarz Twoich klubów", fx_hint: "Najłatwiejszy terminarz na górze. 1 = łatwy, 5 = trudny. H = dom, A = wyjazd.",
+    fx_club: "Klub", fx_blank_cell: "brak meczu", fx_double: "Kolejka z dubletem", fx_blank: "Kolejka z blankiem",
+    free_transfers: "Darmowe transfery",
+    tab_model: "Model", bt_title: "Jak dobry jest model?",
+    bt_hint: "Backtest: dla każdej rozegranej kolejki model przewiduje punkty, korzystając tylko z tygodni przed nią, a my porównujemy to z tym, co zawodnicy naprawdę zdobyli.",
+    bt_loading: "Odtwarzam sezon… pierwsze uruchomienie może potrwać 10–30 sekund, potem jest w pamięci podręcznej.",
+    bt_wins: "Model jest lepszy od prostego typu ‘średnia punktów na kolejkę do tej pory’", bt_loses: "Model NIE jest jeszcze lepszy od prostego typu",
+    bt_summary: "Model kontra prosty typ", bt_model: "Nasz model", bt_baseline: "Prosty typ (średnia pkt na kolejkę)",
+    bt_corr: "Korelacja", bt_corr_hint: "1 = idealnie, 0 = brak związku z prawdziwymi punktami",
+    bt_top10: "Pkt top 10", bt_top10_hint: "Średnie prawdziwe punkty 10 zawodników, których model ocenia najwyżej",
+    bt_mae: "Śr. błąd", bt_mae_hint: "Średnia odległość przewidywania od prawdziwych punktów (mniej = lepiej)",
+    bt_bias: "Przesunięcie", bt_bias_hint: "Średnia: przewidywanie minus prawdziwe punkty (ujemne = model przewiduje za nisko)",
+    bt_sample: "Próba", bt_pairs: "par zawodnik-kolejka",
+    bt_explain: "Wiarygodne są korelacja i średni błąd; ‘Top 10’ opiera się na niewielu zawodnikach i mocno skacze.",
+    bt_per_gw: "Kolejka po kolejce", bt_gw: "Kolejka", bt_players: "Zawodnicy", bt_corr_model: "Kor. model", bt_corr_base: "Kor. prosty",
+    bt_top_model: "Top 10 model", bt_top_base: "Top 10 prosty",
+    bt_tuning: "Czy da się dostroić stałe?",
+    bt_tuning_hint: "Każda tabela zmienia JEDNĄ stałą, reszta zostaje. ★ = najlepsza korelacja. Jeśli różnice są drobne, obecna wartość jest w porządku.",
+    bt_current: "używana", bt_value: "Wartość", bt_best: "Najlepsza", bt_slope: "Krok trudności terminarza",
+    tab_history: "Historia", hist_title: "Miejsce w lidze po kolejkach",
+    hist_hint: "Miejsce w lidze po każdej zakończonej kolejce (1 = góra). Odtwarzane z publicznych danych FPL i zapisane w bazie.",
+    hist_loading: "Odtwarzam historię… za pierwszym razem to kilka sekund, potem działa od razu.",
+    hist_empty: "Nie zakończyła się jeszcze żadna kolejka, więc nie ma historii.", hist_you: "Ty", hist_others: "Pozostali menedżerowie",
+    hist_now: "Teraz", hist_best: "Twoje najlepsze", hist_table: "Widok tabelowy", hist_manager: "Menedżer",
+    hist_aria: "Strzałkami przesuwasz się między kolejkami.",
+    hist_note: "Miejsca liczone wśród {n} śledzonych menedżerów (czołówka ligi i Ty).",
+    tab_prices: "Ceny", pr_title: "Zmiany cen",
+    pr_hint: "Szacunek, kto może dziś zdrożeć lub stanieć, na podstawie transferów netto w tej kolejce. FPL nie publikuje dokładnego wzoru.",
+    pr_scale: "Presja = transfery netto jako część 1% wszystkich graczy. Od {watch} warto obserwować, od {rise} zmiana jest prawdopodobna. Progi to zgrubne przybliżenia, nie fakty.",
+    pr_risers: "Prawdopodobnie zdrożeją (kup wcześniej)", pr_fallers: "Prawdopodobnie stanieją (sprzedaj wcześniej)",
+    pr_none: "Na razie nikt nie przekracza progu obserwacji.",
+    pr_my_falling: "Zawodnicy w Twoim składzie, którzy mogą stanieć", pr_my_rising: "Zawodnicy w Twoim składzie, którzy mogą zdrożeć",
+    pr_player: "Zawodnik", pr_net: "Transfery netto", pr_pressure: "Presja", pr_status: "Sygnał",
+    pr_rise: "Prawdop. wzrost", pr_watch_rise: "Obserwuj ↑", pr_fall: "Prawdop. spadek", pr_watch_fall: "Obserwuj ↓",
+    pr_moved: "już zmienił cenę w tej kol.",
+    tab_rivals: "Rywale", riv_title: "Co robią Twoi rywale",
+    riv_hint: "Kapitanowie są z deadline'u bieżącej kolejki. Transfery są w FPL publiczne zaraz po wykonaniu.",
+    riv_loading: "Pobieram dane rywali… to może potrwać kilka sekund.", riv_none: "Nie masz rywali nad sobą.",
+    riv_captain: "Kapitan", riv_active: "aktywny chip", riv_chips: "Zużyte chipy", riv_no_chips: "jeszcze żaden",
+    riv_transfers: "Ostatnie transfery", riv_no_transfers: "brak", riv_bought: "Kupowani przez rywali", riv_sold: "Sprzedawani przez rywali",
+    riv_last: "ostatnie", riv_gws: "kol.", pts_short: "pkt",
+    plan_title: "Planer transferów",
+    plan_hint: "Plany 1–2 transferów robionych razem: wspólny budżet, max 3 zawodników z klubu.",
+    plan_hit: "koszt za dodatkowy transfer", plan_none: "Nie znaleziono planu z dodatnim zyskiem.",
+    plan_transfer: "transfer", plan_transfers: "transfery",
+    plan_yes: "Opłaca się punktowo", plan_no: "Nie opłaca się punktowo",
+    plan_diff_yes: "Dobry różnicowo", plan_diff_no: "Słaby różnicowo",
+    plan_ep: "Zysk xPkt − koszt", plan_net: "Netto LDS",
+    live_note: "Automatyczne zmiany nie są uwzględnione, dopóki FPL ich nie potwierdzi po kolejce. Odświeża się co minutę.",
+    live_title: "Tabela ligi na żywo", live_hint: "Punkty trwającej kolejki (zawodnicy × mnożnik kapitana − koszt transferów). Dane odświeżane co około minutę.",
+    live_refresh: "Odśwież", live_loading: "Pobieram punkty na żywo…", live_pos: "#", live_team: "Drużyna", live_gw: "Pkt GW",
+    live_total: "Razem", live_gap: "vs Ty", live_shown: "Pokazuję czołówkę", live_of: "z", live_finished: "Ta kolejka jest zakończona.",
     disclaimer: "Narzędzie nieoficjalne, niezwiązane z Premier League ani Fantasy Premier League. Korzysta z publicznego API FPL. Wyniki to prosta heurystyka (xG/xA/xGC, minuty, terminarz), nie przewidywanie. O Tobie nie zapisujemy nic poza zbuforowanymi, publicznymi odpowiedziami FPL."
   }
 };
@@ -230,6 +451,7 @@ function applyLang() {
   document.querySelectorAll("[data-lang]").forEach((b) =>
     b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
   if (lastReport) render(lastReport);
+  renderLive();
 }
 
 const price = (p) => "£" + p.price.toFixed(1) + "m";
@@ -249,47 +471,158 @@ function section(title, hint) {
   return box;
 }
 
-function render(r) {
-  const out = $("result");
-  out.replaceChildren();
+function captainSection(r) {
+  const c = r.captaincy;
   const n = r.meta.rivals.length;
-  const gws = r.meta.horizon_gws;
+  const sec = section(t("cap_title"), `${t("cap_hint")} (${t("gw")}${c.gameweek}).`);
+  if (!c.safe) { sec.append(el("p", {}, t("cap_none"))); return sec; }
+  const card = (label, o) => el("div", { class: "cap-card" },
+    el("h3", {}, label),
+    el("div", { class: "cap-name" }, o.name),
+    el("span", { class: "sub" }, `${o.team} · ${o.position} · ${price(o)}`),
+    el("span", { class: "sub" }, `${t("pts")} ${t("cap_points")}: ${o.captain_points.toFixed(1)}`),
+    el("span", { class: "sub" }, `${t("cap_rivals")}: ${Math.round(o.rival_captain_share * n)} ${t("of")} ${n}`));
+  const grid = el("div", { class: "cap-grid" });
+  if (c.safe.id === c.differential.id) grid.append(card(t("cap_both"), c.safe));
+  else grid.append(card(t("cap_safe"), c.safe), card(t("cap_diff"), c.differential));
+  sec.append(grid);
+  const others = c.options.filter((o) => o.id !== c.safe.id && o.id !== c.differential.id);
+  if (others.length) {
+    const det = el("details", {}, el("summary", {}, t("cap_options")));
+    const body = el("tbody", {});
+    others.forEach((o) => body.append(el("tr", {},
+      el("td", {}, `${o.name} (${o.team})`),
+      el("td", {}, `${o.captain_points.toFixed(1)} ${t("pts")}`),
+      el("td", {}, `${Math.round(o.rival_captain_share * n)}/${n}`))));
+    det.append(el("div", { class: "scroll" }, el("table", {}, body)));
+    sec.append(det);
+  }
+  return sec;
+}
 
-  const summary = el("div", { class: "summary" });
-  const pill = (label, value) => el("span", { class: "pill" }, `${label}: `, el("b", {}, String(value)));
-  summary.append(
-    pill(t("rank"), "#" + r.meta.my_rank),
-    pill(t("analysed"), n),
-    pill(t("squads"), `${t("gw")}${r.meta.squad_as_of_gw}`),
-    pill(t("bank"), `£${r.meta.bank.toFixed(1)}m`),
-    pill(t("ahead"), gws.length ? `${gws[0]}–${gws[gws.length - 1]}` : "-"));
-  out.append(summary);
+function fixturesSection(r) {
+  const f = r.fixtures;
+  const sec = section(t("fx_title"), t("fx_hint"));
+  const specials = [];
+  Object.entries(f.double).forEach(([gw, teams]) => specials.push(`${t("fx_double")} ${t("gw")}${gw}: ${teams.join(", ")}`));
+  Object.entries(f.blank).forEach(([gw, teams]) => specials.push(`${t("fx_blank")} ${t("gw")}${gw}: ${teams.join(", ")}`));
+  specials.forEach((text) => sec.append(el("div", { class: "msg info" }, text)));
 
-  const rivals = el("details", {}, el("summary", {}, t("rivals_list")));
-  const list = el("ul", { class: "notes" });
-  r.meta.rivals.forEach((x) =>
-    list.append(el("li", {}, `#${x.rank} ${x.team} (${x.manager}) – ${x.total} pts`)));
-  rivals.append(list);
-  out.append(rivals);
+  const legend = el("p", { class: "legend" });
+  [1, 2, 3, 4, 5].forEach((d) => legend.append(el("span", { class: "fx d" + d }, String(d))));
+  sec.append(legend);
 
-  const sug = section(t("sug_title"), t("sug_hint"));
+  const head = el("tr", {}, el("th", {}, t("fx_club")));
+  f.gameweeks.forEach((gw) => head.append(el("th", {}, `${t("gw")}${gw}`)));
+  const body = el("tbody", {});
+  f.ticker.forEach((row) => {
+    const tr = el("tr", {}, el("th", { scope: "row" }, el("strong", {}, row.team),
+      el("span", { class: "sub" }, row.players.join(", "))));
+    row.gameweeks.forEach((g) => {
+      const td = el("td", {});
+      if (!g.matches.length) td.append(el("span", { class: "fx blank" }, t("fx_blank_cell")));
+      g.matches.forEach((m) => {
+        const d = Math.min(5, Math.max(1, m.difficulty));
+        td.append(el("span", { class: "fx d" + d }, `${m.opponent} (${m.home ? "H" : "A"})`));
+      });
+      tr.append(td);
+    });
+    body.append(tr);
+  });
+  sec.append(el("div", { class: "scroll" }, el("table", { class: "ticker" }, el("thead", {}, head), body)));
+  return sec;
+}
+
+function transfersSection(r) {
+  const n = r.meta.rivals.length;
+  const sec = section(t("sug_title"), t("sug_hint"));
   const card = el("div", { class: "card" });
   if (!r.suggestions.length) card.append(el("p", {}, t("sug_none")));
   r.suggestions.forEach((s) => card.append(el("div", { class: "swap" },
     playerBlock(s.out, n, true), el("span", { class: "arrow", "aria-hidden": "true" }, "→"),
     playerBlock(s.in, n, false),
     el("span", { class: "gain", title: t("gain") }, "+" + s.score_gain.toFixed(1)))));
-  sug.append(card);
-  out.append(sug);
+  sec.append(card);
+  sec.append(plannerBlock(r));
+  return sec;
+}
 
-  const gems = section(t("diff_title"), t("diff_hint"));
+// Plans of 1-2 transfers made together (shared budget, club limit, -4 for extra transfers).
+function plannerBlock(r) {
+  const n = r.meta.rivals.length;
+  const pl = r.planner;
+  const box = el("div", {}, el("h2", {}, t("plan_title")),
+    el("p", { class: "hint" }, `${t("plan_hint")} (${t("free_transfers")}: ${pl.free_transfers} · ${t("plan_hit")}: −${pl.hit_cost})`));
+  if (!pl.plans.length) { box.append(el("p", {}, t("plan_none"))); return box; }
+  const signed = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(1);
+  pl.plans.forEach((p) => {
+    const card = el("div", { class: "card plan" },
+      el("h3", { class: "plan-title" }, `${p.transfers} ${t(p.transfers === 1 ? "plan_transfer" : "plan_transfers")}`));
+    p.swaps.forEach((s) => card.append(el("div", { class: "swap" },
+      playerBlock(s.out, n, true), el("span", { class: "arrow", "aria-hidden": "true" }, "→"),
+      playerBlock(s.in, n, false), el("span", {}, ""))));
+    const verdict = el("span", { class: p.worth_it ? "gain" : "gain bad" }, t(p.worth_it ? "plan_yes" : "plan_no"));
+    const diff = el("span", { class: p.differential ? "gain" : "gain bad" }, t(p.differential ? "plan_diff_yes" : "plan_diff_no"));
+    card.append(el("div", { class: "plan-sum" }, verdict, diff,
+      el("span", {}, `${t("plan_ep")} ${signed(p.ep_gain)} − ${p.hit} = ${signed(p.net_ep)}`),
+      el("span", {}, `${t("plan_net")} ${signed(p.net_score)}`),
+      el("span", {}, `${t("bank")} £${p.bank_after.toFixed(1)}m`)));
+    box.append(card);
+  });
+  return box;
+}
+
+function pricesSection(r) {
+  const p = r.prices;
+  const sec = section(t("pr_title"), t("pr_hint"));
+  sec.append(el("div", { class: "msg info" },
+    t("pr_scale").replace("{rise}", p.rise_pressure).replace("{watch}", p.watch_pressure)));
+
+  const table = (rows) => {
+    const head = el("tr", {}, ...["pr_player", "pr_net", "pr_pressure", "pr_status", "pts"]
+      .map((k) => el("th", {}, t(k))));
+    const body = el("tbody", {});
+    rows.forEach((x) => {
+      const cls = x.status === "rise" ? "gain" : x.status === "fall" ? "gain bad" : "gain warn";
+      body.append(el("tr", { class: x.mine ? "me-row" : "" },
+        el("td", {}, el("strong", {}, x.name + (x.mine ? ` (${t("you")})` : "")),
+          el("span", { class: "sub" }, `${x.team} · ${x.position} · £${x.price.toFixed(1)}m · ${x.owned_percent}%`)),
+        el("td", {}, (x.net_transfers > 0 ? "+" : "") + x.net_transfers.toLocaleString()),
+        el("td", {}, (x.pressure > 0 ? "+" : "") + x.pressure.toFixed(2)),
+        el("td", {}, el("span", { class: cls }, t("pr_" + x.status)),
+          x.changed_this_gw ? el("span", { class: "sub" }, t("pr_moved")) : ""),
+        el("td", {}, x.expected_points.toFixed(1))));
+    });
+    return el("div", { class: "scroll" }, el("table", { class: "pricetbl" }, el("thead", {}, head), body));
+  };
+  const block = (title, rows) => {
+    sec.append(el("h2", {}, title));
+    sec.append(rows.length ? table(rows) : el("p", { class: "hint" }, t("pr_none")));
+  };
+  if (p.my_falling.length) {
+    sec.append(el("div", { class: "msg error" }, `${t("pr_my_falling")}: ${p.my_falling.map((x) => x.name).join(", ")}`));
+  }
+  if (p.my_rising.length) {
+    sec.append(el("div", { class: "msg info" }, `${t("pr_my_rising")}: ${p.my_rising.map((x) => x.name).join(", ")}`));
+  }
+  block(t("pr_risers"), p.risers);
+  block(t("pr_fallers"), p.fallers);
+  return sec;
+}
+
+function gemsSection(r) {
+  const n = r.meta.rivals.length;
+  const sec = section(t("diff_title"), t("diff_hint"));
   const grid = el("div", { class: "grid2" });
   r.differentials.forEach((p) => grid.append(el("div", { class: "diff" }, playerBlock(p, n, false))));
-  gems.append(grid);
-  out.append(gems);
+  sec.append(grid);
+  return sec;
+}
 
-  const cov = section(t("cov_title"), t("cov_hint"));
-  cov.append(el("p", { class: "legend" },
+function coverageSection(r) {
+  const n = r.meta.rivals.length;
+  const sec = section(t("cov_title"), t("cov_hint"));
+  sec.append(el("p", { class: "legend" },
     el("span", {}, el("i", { class: "dot mine" }), t("cov_mine")),
     el("span", {}, el("i", { class: "dot" }), t("cov_other"))));
   const bars = el("div", { class: "bars" });
@@ -302,17 +635,518 @@ function render(r) {
       name, el("div", { class: "bar-track" }, fill),
       el("span", { class: "bar-count" }, `${row.rivals_owning}/${n}`)));
   });
-  cov.append(bars);
-  out.append(cov);
+  sec.append(bars);
+  return sec;
+}
 
+function infoSection(r) {
+  const sec = section(t("rivals_list"));
+  const list = el("ul", { class: "notes" });
+  r.meta.rivals.forEach((x) =>
+    list.append(el("li", {}, `#${x.rank} ${x.team} (${x.manager}) – ${x.total} pts`)));
+  sec.append(list);
   if (r.meta.notes.length) {
-    const notes = section(t("notes"));
+    sec.append(el("h2", {}, t("notes")));
     const ul = el("ul", { class: "notes" });
     r.meta.notes.forEach((x) => ul.append(el("li", {}, x)));
-    notes.append(ul);
-    out.append(notes);
+    sec.append(ul);
   }
+  return sec;
+}
+
+// Rivals tab: own endpoint, loaded the first time the tab is opened and kept until the next analysis.
+let rivalsData = null, rivalsError = "", rivalsBusy = false;
+const CHIP_NAMES = { wildcard: "Wildcard", freehit: "Free Hit", bboost: "Bench Boost", "3xc": "Triple Captain" };
+
+function rivalsSection() {
+  const sec = section(t("riv_title"), t("riv_hint"));
+  const holder = el("div", {});
+  sec.append(holder);
+  const draw = () => {
+    if (rivalsBusy) { holder.replaceChildren(el("div", { class: "msg info" }, t("riv_loading"))); return; }
+    if (rivalsError) { holder.replaceChildren(el("div", { class: "msg error" }, rivalsError)); return; }
+    if (rivalsData) holder.replaceChildren(rivalsView(rivalsData));
+  };
+  if (!rivalsData && !rivalsError) loadRivals().then(() => { if (holder.isConnected) draw(); });
+  draw();
+  return sec;
+}
+
+let rivalsPromise = null;
+function loadRivals() {
+  // Switching tabs while loading must not start a second request: share the running one.
+  if (!rivalsPromise) rivalsPromise = fetchRivals().finally(() => { rivalsPromise = null; });
+  return rivalsPromise;
+}
+
+async function fetchRivals() {
+  rivalsBusy = true; rivalsError = "";
+  try {
+    const p = params();
+    const res = await fetch("/api/league/rivals?" + new URLSearchParams(
+      { league_id: p.league_id, entry_id: p.entry_id, rivals: p.rivals, mode: p.mode }));
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      let msg = body.detail;
+      if (Array.isArray(msg)) msg = msg.map((d) => d.msg).join("; ");
+      rivalsError = msg || t("error_generic");
+    } else rivalsData = body;
+  } catch (e) {
+    rivalsError = t("error_network");
+  } finally {
+    rivalsBusy = false;
+  }
+}
+
+function rivalsView(d) {
+  const box = el("div", {});
+  if (!d.rivals.length) { box.append(el("p", {}, t("riv_none"))); return box; }
+  const trend = (title, rows) => el("div", { class: "card" }, el("h3", { class: "plan-title" }, title),
+    ...(rows.length ? rows.map((x) => el("div", {}, `${x.name} `, el("span", { class: "sub" }, `×${x.rivals}`)))
+      : [el("span", { class: "sub" }, t("riv_no_transfers"))]));
+  box.append(el("div", { class: "grid2" },
+    trend(`${t("riv_bought")} (${t("riv_last")} ${d.recent_gameweeks} ${t("riv_gws")})`, d.trending_in),
+    trend(`${t("riv_sold")} (${t("riv_last")} ${d.recent_gameweeks} ${t("riv_gws")})`, d.trending_out)));
+  d.rivals.forEach((r) => {
+    const chips = r.chips_used.length
+      ? r.chips_used.map((c) => `${CHIP_NAMES[c.name] || c.name} (${t("gw")}${c.event})`).join(", ")
+      : t("riv_no_chips");
+    const row = (label, ...value) => el("div", { class: "riv-row" },
+      el("span", { class: "riv-label" }, label), el("div", { class: "riv-value" }, ...value));
+
+    // Transfers grouped by gameweek (newest first): one line per gameweek, one pill per move.
+    const byGw = new Map();
+    r.transfers.forEach((m) => byGw.set(m.event, [...(byGw.get(m.event) || []), m]));
+    const moves = el("div", { class: "riv-moves" });
+    byGw.forEach((list, gw) => moves.append(el("div", { class: "riv-gw" },
+      el("b", {}, `${t("gw")}${gw}`),
+      el("div", { class: "riv-pills" }, ...list.map((m) => el("span", { class: "pill-move" },
+        el("s", {}, m.out), " → ", el("strong", {}, m.in)))))));
+    if (!r.transfers.length) moves.append(el("span", { class: "sub" }, t("riv_no_transfers")));
+
+    const captain = r.captain ? r.captain.name : "–";
+    const chipNow = r.active_chip
+      ? el("span", { class: "gain" }, `${t("riv_active")}: ${CHIP_NAMES[r.active_chip] || r.active_chip}`) : "";
+    box.append(el("div", { class: "card riv" },
+      el("div", { class: "riv-head" },
+        el("div", {}, el("strong", {}, r.team || "?"), el("span", { class: "sub" }, r.manager || "")),
+        el("div", { class: "riv-rank" }, `#${r.rank}`, el("span", { class: "sub" }, `${r.total} ${t("pts_short")}`))),
+      row(t("riv_captain"), el("strong", {}, captain), chipNow),
+      row(t("riv_chips"), chips),
+      row(`${t("riv_transfers")}${r.hits ? ` (−${r.hits} ${t("pts_short")})` : ""}`, moves)));
+  });
+  return box;
+}
+
+// A tab that loads its own data the first time it is opened and keeps it until the next analysis.
+function lazyResource(path, extra) {
+  const r = {
+    data: null, error: "", busy: false, promise: null,
+    reset() { r.data = null; r.error = ""; },
+    load() {
+      // Switching tabs while loading must not start a second request: share the running one.
+      if (!r.promise) r.promise = r.fetchNow().finally(() => { r.promise = null; });
+      return r.promise;
+    },
+    async fetchNow() {
+      r.busy = true; r.error = "";
+      try {
+        const p = params();
+        const res = await fetch(`/api/league/${path}?` + new URLSearchParams(
+          { league_id: p.league_id, entry_id: p.entry_id, ...extra(p) }));
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          let msg = body.detail;
+          if (Array.isArray(msg)) msg = msg.map((d) => d.msg).join("; ");
+          r.error = msg || t("error_generic");
+        } else r.data = body;
+      } catch (e) {
+        r.error = t("error_network");
+      } finally {
+        r.busy = false;
+      }
+    },
+  };
+  return r;
+}
+
+// History tab: league rank after every finished gameweek (one line per manager).
+const histRes = lazyResource("history", () => ({ show: 10 }));
+
+function historySection() {
+  const sec = section(t("hist_title"), t("hist_hint"));
+  const holder = el("div", {});
+  sec.append(holder);
+  const draw = () => {
+    if (histRes.busy) { holder.replaceChildren(el("div", { class: "msg info" }, t("hist_loading"))); return; }
+    if (histRes.error) { holder.replaceChildren(el("div", { class: "msg error" }, histRes.error)); return; }
+    if (histRes.data) holder.replaceChildren(historyView(histRes.data));
+  };
+  if (!histRes.data && !histRes.error) histRes.load().then(() => { if (holder.isConnected) draw(); });
+  draw();
+  return sec;
+}
+
+function historyView(d) {
+  const box = el("div", {});
+  if (!d.gameweeks.length || !d.series.length) { box.append(el("p", {}, t("hist_empty"))); return box; }
+  const gws = d.gameweeks;
+  const me = d.series.find((x) => x.is_me);
+
+  // Headline numbers for you.
+  if (me) {
+    const known = me.ranks.map((r, i) => [r, gws[i]]).filter(([r]) => r != null);
+    const [best, bestGw] = known.reduce((a, b) => (b[0] < a[0] ? b : a));
+    const now = known[known.length - 1][0];
+    const prev = known.length > 1 ? known[known.length - 2][0] : null;
+    const move = prev == null || prev === now ? "" : (prev > now ? ` ▲${prev - now}` : ` ▼${now - prev}`);
+    const pill = (label, value) => el("span", { class: "pill" }, `${label}: `, el("b", {}, value));
+    box.append(el("div", { class: "summary" },
+      pill(t("hist_now"), `#${now}${move}`), pill(t("hist_best"), `#${best} (${t("gw")}${bestGw})`)));
+  }
+
+  // Legend (always for 2+ series): you in the accent colour, everybody else in grey.
+  box.append(el("p", { class: "legend rc-legend" },
+    el("span", {}, el("i", { class: "key me" }), t("hist_you")),
+    el("span", {}, el("i", { class: "key other" }), t("hist_others"))));
+
+  const wrap = el("div", { class: "rc" });
+  const host = el("div", {});
+  const tip = el("div", { class: "rc-tip" });
+  tip.hidden = true;
+  wrap.append(host, tip);
+  box.append(wrap);
+
+  const NS = "http://www.w3.org/2000/svg";
+  const s = (tag, attrs, ...kids) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, String(v));
+    n.append(...kids);
+    return n;
+  };
+  const maxRank = Math.max(...d.series.flatMap((x) => x.ranks.filter((r) => r != null)));
+  const ROW = 22, M = { t: 14, r: 104, b: 30, l: 36 };
+  const leader = d.series.reduce((a, b) => ((b.ranks.at(-1) ?? 99) < (a.ranks.at(-1) ?? 99) ? b : a));
+  const short = (txt) => ((txt || "?").length > 15 ? txt.slice(0, 14) + "…" : txt || "?");
+  let idx = gws.length - 1;
+  let geo = null; // geometry of the current render, used by the hover layer
+
+  function showTip(i) {
+    idx = Math.max(0, Math.min(gws.length - 1, i));
+    const rows = d.series.filter((x) => x.ranks[idx] != null).sort((a, b) => a.ranks[idx] - b.ranks[idx]);
+    tip.replaceChildren(el("div", { class: "rc-tip-head" }, `${t("gw")}${gws[idx]}`),
+      ...rows.map((x) => el("div", { class: "rc-tip-row" + (x.is_me ? " me" : "") },
+        el("i", { class: "key " + (x.is_me ? "me" : "other") }),
+        el("strong", {}, `#${x.ranks[idx]}`), el("span", {}, `${x.team || "?"} · ${x.totals[idx]} ${t("pts_short")}`))));
+    tip.hidden = false;
+    const x = geo.x(idx);
+    tip.style.top = "6px";
+    const tw = tip.offsetWidth;
+    tip.style.left = (x + 14 + tw > geo.width ? Math.max(0, x - 14 - tw) : x + 14) + "px";
+    geo.cross.setAttribute("x1", x); geo.cross.setAttribute("x2", x);
+    geo.cross.style.display = "";
+  }
+  function hideTip() { tip.hidden = true; if (geo) geo.cross.style.display = "none"; }
+
+  function draw(width) {
+    const plotW = width - M.l - M.r, plotH = Math.max(1, maxRank - 1) * ROW, height = plotH + M.t + M.b;
+    const x = (i) => M.l + (gws.length === 1 ? plotW / 2 : (i * plotW) / (gws.length - 1));
+    const y = (r) => M.t + (r - 1) * ROW;
+    const svg = s("svg", { viewBox: `0 0 ${width} ${height}`, width, height, tabindex: 0, role: "img",
+      "aria-label": `${t("hist_title")}. ${t("hist_aria")}` });
+
+    // Hairline grid + rank ticks (every rank when few, else 1 and every 5th).
+    const ticks = [];
+    for (let r = 1; r <= maxRank; r++) if (maxRank <= 10 || r === 1 || r % 5 === 0 || r === maxRank) ticks.push(r);
+    ticks.forEach((r) => svg.append(
+      s("line", { class: "rc-grid", x1: M.l, x2: width - M.r, y1: y(r), y2: y(r) }),
+      s("text", { class: "rc-tick", x: M.l - 8, y: y(r), dy: "0.32em", "text-anchor": "end" }, String(r))));
+    const every = Math.max(1, Math.ceil(40 / (gws.length > 1 ? plotW / (gws.length - 1) : 40)));
+    gws.forEach((g, i) => { if (i % every === 0 || i === gws.length - 1) svg.append(
+      s("text", { class: "rc-tick", x: x(i), y: height - 8, "text-anchor": "middle" }, `${t("gw")}${g}`)); });
+
+    // Lines: everybody else first (grey), you last so you are on top. Gaps in the data break the line.
+    const path = (ser) => {
+      let dd = "", pen = false;
+      ser.ranks.forEach((r, i) => { dd += r == null ? "" : `${pen ? "L" : "M"}${x(i)} ${y(r)} `; pen = r != null; });
+      return dd;
+    };
+    [...d.series.filter((q) => !q.is_me), ...d.series.filter((q) => q.is_me)].forEach((ser) =>
+      svg.append(s("path", { class: "rc-line " + (ser.is_me ? "me" : "other"), d: path(ser) })));
+
+    // Direct labels only for you and the current leader (the tooltip and the table carry the rest).
+    [...new Set([leader, me].filter(Boolean))].forEach((ser) => {
+      const last = ser.ranks.length - 1, r = ser.ranks[last];
+      if (r == null) return;
+      svg.append(s("circle", { class: "rc-dot " + (ser.is_me ? "me" : "other"), cx: x(last), cy: y(r), r: 4 }),
+        s("text", { class: "rc-label" + (ser.is_me ? " me" : ""), x: x(last) + 10, y: y(r), dy: "0.32em" },
+          `${ser.is_me ? t("you") + ": " : ""}${short(ser.team)}`));
+    });
+
+    // Hover layer: a crosshair that snaps to the nearest gameweek.
+    const cross = s("line", { class: "rc-cross", y1: M.t - 6, y2: M.t + plotH + 6 });
+    cross.style.display = "none";
+    const hit = s("rect", { x: M.l - 12, y: 0, width: plotW + 24, height, fill: "transparent" });
+    const at = (e) => {
+      const box = svg.getBoundingClientRect();
+      return Math.round(((e.clientX - box.left - M.l) / Math.max(1, plotW)) * (gws.length - 1));
+    };
+    hit.addEventListener("pointermove", (e) => showTip(at(e)));
+    hit.addEventListener("pointerleave", hideTip);
+    svg.addEventListener("focus", () => showTip(idx));
+    svg.addEventListener("blur", hideTip);
+    svg.addEventListener("keydown", (e) => {
+      const moves = { ArrowLeft: idx - 1, ArrowRight: idx + 1, Home: 0, End: gws.length - 1 };
+      if (e.key === "Escape") { hideTip(); return; }
+      if (!(e.key in moves)) return;
+      e.preventDefault();
+      showTip(moves[e.key]);
+    });
+    svg.append(cross, hit);
+    geo = { x, width, cross };
+    host.replaceChildren(svg);
+  }
+
+  // Draw at the real width and again whenever the card is resized.
+  const ro = new ResizeObserver((entries) => {
+    if (!wrap.isConnected) { ro.disconnect(); return; }
+    const w = Math.floor(entries[0].contentRect.width);
+    if (w > 0) { draw(Math.max(w, 300)); hideTip(); }
+  });
+  ro.observe(wrap);
+
+  // Table view: the same numbers without needing a pointer.
+  const head = el("tr", {}, el("th", {}, t("hist_manager")), ...gws.map((g) => el("th", {}, `${t("gw")}${g}`)));
+  const body = el("tbody", {});
+  [...d.series].sort((a, b) => (a.ranks.at(-1) ?? 99) - (b.ranks.at(-1) ?? 99)).forEach((ser) =>
+    body.append(el("tr", { class: ser.is_me ? "me-row" : "" },
+      el("td", {}, el("strong", {}, ser.team || "?"), el("span", { class: "sub" }, ser.manager || "")),
+      ...ser.ranks.map((r) => el("td", {}, r == null ? "–" : `#${r}`)))));
+  box.append(el("details", {}, el("summary", {}, t("hist_table")),
+    el("div", { class: "scroll" }, el("table", { class: "pricetbl" }, el("thead", {}, head), body))));
+  box.append(el("p", { class: "hint" }, t("hist_note").replace("{n}", d.tracked)));
+  return box;
+}
+
+// Model tab: how well did the expected-points model predict gameweeks that are already played?
+const modelRes = lazyResource("backtest", () => ({}));
+
+function modelSection() {
+  const sec = section(t("bt_title"), t("bt_hint"));
+  const holder = el("div", {});
+  sec.append(holder);
+  const draw = () => {
+    if (modelRes.busy) { holder.replaceChildren(el("div", { class: "msg info" }, t("bt_loading"))); return; }
+    if (modelRes.error) { holder.replaceChildren(el("div", { class: "msg error" }, modelRes.error)); return; }
+    if (modelRes.data) holder.replaceChildren(modelView(modelRes.data));
+  };
+  if (!modelRes.data && !modelRes.error) modelRes.load().then(() => { if (holder.isConnected) draw(); });
+  draw();
+  return sec;
+}
+
+function modelView(d) {
+  const box = el("div", {});
+  const num = (v, digits = 2) => (v == null ? "–" : v.toFixed(digits));
+  const m = d.summary.model, b = d.summary.baseline;
+
+  // Verdict first: does the model beat the simple guess?
+  const wins = m.corr != null && b.corr != null && m.corr > b.corr;
+  box.append(el("div", { class: wins ? "msg info" : "msg error" },
+    `${t(wins ? "bt_wins" : "bt_loses")} (${t("bt_corr")}: ${num(m.corr)} vs ${num(b.corr)})`));
+
+  const metric = (label, hint) => el("th", { title: hint }, label);
+  const summaryRow = (label, x, cls) => el("tr", { class: cls || "" }, el("th", { scope: "row" }, label),
+    el("td", {}, num(x.corr)), el("td", {}, num(x.top10)), el("td", {}, num(x.mae)),
+    el("td", {}, (x.bias > 0 ? "+" : "") + num(x.bias)));
+  box.append(el("h2", {}, t("bt_summary")),
+    el("div", { class: "scroll" }, el("table", { class: "pricetbl" },
+      el("thead", {}, el("tr", {}, el("th", {}, ""), metric(t("bt_corr"), t("bt_corr_hint")),
+        metric(t("bt_top10"), t("bt_top10_hint")), metric(t("bt_mae"), t("bt_mae_hint")),
+        metric(t("bt_bias"), t("bt_bias_hint")))),
+      el("tbody", {}, summaryRow(t("bt_model"), m, "me-row"), summaryRow(t("bt_baseline"), b)))),
+    el("p", { class: "hint" }, `${t("bt_sample")}: ${m.n} ${t("bt_pairs")}, ${t("gw")}${d.gameweeks[0]}–${t("gw")}${d.gameweeks.at(-1)}. ${t("bt_explain")}`));
+
+  // Per gameweek.
+  const head = el("tr", {}, ...["bt_gw", "bt_players", "bt_corr_model", "bt_corr_base", "bt_top_model", "bt_top_base"]
+    .map((k) => el("th", {}, t(k))));
+  const body = el("tbody", {});
+  d.per_gw.forEach((r) => body.append(el("tr", {},
+    el("td", {}, `${t("gw")}${r.gw}`), el("td", {}, String(r.n)),
+    el("td", {}, num(r.corr_model)), el("td", {}, num(r.corr_baseline)),
+    el("td", {}, num(r.top10_model, 1)), el("td", {}, num(r.top10_baseline, 1)))));
+  box.append(el("h2", {}, t("bt_per_gw")),
+    el("div", { class: "scroll" }, el("table", { class: "pricetbl" }, el("thead", {}, head), body)));
+
+  // Tuning the constants.
+  box.append(el("h2", {}, t("bt_tuning")), el("p", { class: "hint" }, t("bt_tuning_hint")));
+  const sweep = (title, rows, fmt) => {
+    const sbody = el("tbody", {});
+    rows.forEach((r) => sbody.append(el("tr", { class: r.is_current ? "me-row" : "" },
+      el("td", {}, fmt(r.value), r.is_current ? ` (${t("bt_current")})` : ""),
+      el("td", {}, num(r.corr, 3)), el("td", {}, num(r.top10)), el("td", {}, num(r.mae)),
+      el("td", {}, r.is_best ? "★" : ""))));
+    return el("div", {}, el("h3", { class: "plan-title" }, title),
+      el("div", { class: "scroll" }, el("table", { class: "pricetbl" },
+        el("thead", {}, el("tr", {}, el("th", {}, t("bt_value")), el("th", {}, t("bt_corr")),
+          el("th", {}, t("bt_top10")), el("th", {}, t("bt_mae")), el("th", {}, t("bt_best")))), sbody)));
+  };
+  box.append(el("div", { class: "grid2" },
+    sweep("PRIOR_MINUTES", d.sweeps.prior_minutes, (v) => String(v)),
+    sweep(t("bt_slope"), d.sweeps.fixture_slope, (v) => v.toFixed(2))));
+
+  box.append(el("h2", {}, t("notes")));
+  const ul = el("ul", { class: "notes" });
+  d.notes.forEach((n) => ul.append(el("li", {}, n)));
+  box.append(ul);
+  return box;
+}
+
+// The live table sits next to the report (not in a tab) and refreshes itself every minute.
+// It has its own endpoint because the main report is cached much longer.
+let liveData = null, liveError = "", liveBusy = false, liveTimer = null;
+
+function renderLive() {
+  const box = $("live");
+  if (!liveData && !liveError && !liveBusy) { box.hidden = true; return; }
+  box.hidden = false;
+  const btn = el("button", { type: "button" }, t("live_refresh"));
+  btn.disabled = liveBusy;
+  btn.addEventListener("click", loadLive);
+  const card = el("div", { class: "card" });
+  card.append(el("div", { class: "live-head" }, btn,
+    el("span", { class: "hint" }, liveBusy ? t("live_loading") : "")));
+  if (liveError) card.append(el("div", { class: "msg error" }, liveError));
+  if (liveData) card.append(liveTable(liveData));
+  box.replaceChildren(el("h2", {}, t("live_title")), el("p", { class: "hint" }, t("live_hint")), card);
+}
+
+async function loadLive() {
+  if (liveBusy) return;
+  liveBusy = true;
+  renderLive();
+  try {
+    const p = params();
+    const res = await fetch("/api/league/live?" + new URLSearchParams({ league_id: p.league_id, entry_id: p.entry_id }));
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      let msg = body.detail;
+      if (Array.isArray(msg)) msg = msg.map((d) => d.msg).join("; ");
+      liveError = msg || t("error_generic");
+    } else {
+      liveData = body;
+      liveError = "";
+    }
+  } catch (e) {
+    liveError = t("error_network");
+  } finally {
+    liveBusy = false;
+    renderLive();
+  }
+}
+
+function startLive() {
+  liveData = null; liveError = "";
+  clearInterval(liveTimer);
+  liveTimer = setInterval(() => { if (!document.hidden) loadLive(); }, 60000);
+  loadLive();
+}
+
+function liveTable(d) {
+  const box = el("div", {});
+  box.append(el("p", { class: "hint" },
+    `${t("gw")}${d.gameweek} · ${t("live_shown")} ${d.shown} ${t("live_of")} ${d.league_size}` +
+    (d.finished ? ` · ${t("live_finished")}` : "")));
+  const head = el("tr", {}, ...["live_pos", "live_team", "live_gw", "live_total", "live_gap"]
+    .map((k) => el("th", {}, t(k))));
+  const body = el("tbody", {});
+  const signed = (n) => (n > 0 ? "+" + n : String(n));
+  d.rows.forEach((r) => {
+    const arrow = r.rank_change > 0 ? el("span", { class: "up" }, ` ▲${r.rank_change}`)
+      : r.rank_change < 0 ? el("span", { class: "down" }, ` ▼${-r.rank_change}`) : el("span", {}, "");
+    const team = el("td", {}, el("strong", {}, r.team || "?"),
+      el("span", { class: "sub" }, r.manager + (r.chip ? ` · ${r.chip}` : "")));
+    body.append(el("tr", { class: r.is_me ? "me-row" : "" },
+      el("td", {}, String(r.live_rank), arrow), team,
+      el("td", {}, String(r.gw_points) + (r.transfer_cost ? ` (−${r.transfer_cost})` : "")),
+      el("td", {}, String(r.live_total)),
+      el("td", {}, r.is_me ? "–" : signed(r.gap_to_me))));
+  });
+  box.append(el("div", { class: "scroll" }, el("table", { class: "live-table" }, el("thead", {}, head), body)));
+  box.append(el("p", { class: "hint" }, t("live_note")));
+  return box;
+}
+
+// To add a tab, add a line here and a function that builds its content.
+const TABS = [
+  { id: "transfers", label: "tab_transfers", build: transfersSection },
+  { id: "captain", label: "tab_captain", build: captainSection },
+  { id: "rivals", label: "tab_rivals", build: rivalsSection },
+  { id: "history", label: "tab_history", build: historySection },
+  { id: "fixtures", label: "tab_fixtures", build: fixturesSection },
+  { id: "prices", label: "tab_prices", build: pricesSection },
+  { id: "gems", label: "tab_gems", build: gemsSection },
+  { id: "coverage", label: "tab_coverage", build: coverageSection },
+  { id: "model", label: "tab_model", build: modelSection },
+  { id: "info", label: "tab_info", build: infoSection },
+];
+let activeTab = "transfers";
+const hashTab = location.hash.slice(1);
+if (TABS.some((x) => x.id === hashTab)) activeTab = hashTab;
+
+function showTab(id, focus) {
+  const tab = TABS.find((x) => x.id === id) || TABS[0];
+  activeTab = tab.id;
+  document.querySelectorAll("#result [role=tab]").forEach((b) => {
+    const on = b.dataset.tab === tab.id;
+    b.setAttribute("aria-selected", String(on));
+    b.tabIndex = on ? 0 : -1;
+    if (on && focus) b.focus();
+  });
+  const panel = $("panel");
+  panel.setAttribute("aria-labelledby", "tab-" + tab.id);
+  panel.replaceChildren(tab.build(lastReport));
+  try {
+    const u = new URL(location.href);
+    u.hash = tab.id;
+    history.replaceState(null, "", u);
+  } catch (e) {}
+}
+
+function render(r) {
+  const out = $("result");
+  out.replaceChildren();
+  const gws = r.meta.horizon_gws;
+
+  const summary = el("div", { class: "summary" });
+  const pill = (label, value) => el("span", { class: "pill" }, `${label}: `, el("b", {}, String(value)));
+  summary.append(
+    pill(t("rank"), "#" + r.meta.my_rank),
+    pill(t("analysed"), r.meta.rivals.length),
+    pill(t("squads"), `${t("gw")}${r.meta.squad_as_of_gw}`),
+    pill(t("bank"), `£${r.meta.bank.toFixed(1)}m`),
+    pill(t("ahead"), gws.length ? `${gws[0]}–${gws[gws.length - 1]}` : "-"));
+  out.append(summary);
+
+  const bar = el("div", { class: "tabs", role: "tablist", "aria-label": t("tabs_label") });
+  TABS.forEach((tab) => bar.append(el("button", {
+    type: "button", role: "tab", id: "tab-" + tab.id, "data-tab": tab.id,
+    "aria-controls": "panel", "aria-selected": "false", tabindex: "-1",
+  }, t(tab.label))));
+  bar.addEventListener("click", (e) => {
+    const b = e.target.closest("[role=tab]");
+    if (b) showTab(b.dataset.tab, false);
+  });
+  bar.addEventListener("keydown", (e) => {
+    const i = TABS.findIndex((x) => x.id === activeTab);
+    const moves = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 };
+    if (!(e.key in moves)) return;
+    e.preventDefault();
+    showTab(TABS[(moves[e.key] + TABS.length) % TABS.length].id, true);
+  });
+  out.append(bar, el("div", { id: "panel", role: "tabpanel", class: "panel", tabindex: "0" }));
   out.hidden = false;
+  showTab(activeTab, false);
 }
 
 function params() {
@@ -320,15 +1154,16 @@ function params() {
   return {
     league_id: f.league.value.trim(), entry_id: f.entry.value.trim(),
     rivals: f.rivals.value, mode: f.mode.value, horizon: f.horizon.value,
-    uniqueness: f.uniqueness.value,
+    uniqueness: f.uniqueness.value, free_transfers: f.free.value,
   };
 }
 
 function shareUrl() {
   const p = params();
   const u = new URL(location.href);
+  u.hash = activeTab;
   u.search = new URLSearchParams({ league: p.league_id, entry: p.entry_id, rivals: p.rivals,
-    mode: p.mode, horizon: p.horizon, u: p.uniqueness }).toString();
+    mode: p.mode, horizon: p.horizon, u: p.uniqueness, ft: p.free_transfers }).toString();
   return u.toString();
 }
 
@@ -354,7 +1189,10 @@ async function analyse() {
     }
     showStatus("", "");
     lastReport = body;
+    rivalsData = null; rivalsError = "";
+    histRes.reset(); modelRes.reset();
     render(body);
+    startLive();
     history.replaceState(null, "", shareUrl());
     $("copy").hidden = false;
     try { localStorage.setItem("fpl-ids", JSON.stringify({ league: params().league_id, entry: params().entry_id })); } catch (e) {}
@@ -389,6 +1227,7 @@ document.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("clic
   if (q.get("rivals")) f.rivals.value = q.get("rivals");
   if (q.get("mode")) f.mode.value = q.get("mode");
   if (q.get("horizon")) f.horizon.value = q.get("horizon");
+  if (q.get("ft")) f.free.value = q.get("ft");
   if (q.get("u")) { f.uniqueness.value = q.get("u"); $("uniq-out").textContent = f.uniqueness.value; }
   applyLang();
   if (q.get("league") && q.get("entry")) analyse();

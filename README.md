@@ -65,6 +65,14 @@ For one classic mini-league the report:
 
 The score is a transparent heuristic, not a prediction. Squads of other managers are hidden by FPL until the gameweek deadline, so the analysis uses the squads from the last deadline.
 
+### League rank history
+
+FPL only shows the current league table, but every manager's own history is public. The **History** tab rebuilds the table after each finished gameweek (rank = how many managers had more points), stores it in the `rank_history` table and draws a rank chart with you highlighted. Once stored, showing the chart needs no FPL requests, and `python -m app.league.refresh` keeps it up to date. Ranks are counted among the tracked managers (top 25 plus you).
+
+### Model backtest
+
+The **Model** tab replays the finished gameweeks: for each one the expected-points model predicts using only the weeks before it (no peeking), and the result is compared with the points players really scored and with a naive baseline (average points per week so far). It reports correlation, average error and the real points of the model's top 10, and tries other values of `PRIOR_MINUTES` and the fixture-difficulty step. The finished gameweeks are cached, so only the first run is slow.
+
 ### Player history
 
 The **collector** (`python -m app.collector`) downloads one JSON from the FPL API and stores a snapshot of every player. Each run adds a new snapshot, so price and form changes can be compared over time.
@@ -75,6 +83,9 @@ The **collector** (`python -m app.collector`) downloads one JSON from the FPL AP
 |---|---|
 | `GET /` | Web UI for the league report. |
 | `GET /api/league/report?league_id=…&entry_id=…` | League differential report (JSON). Optional: `rivals`, `mode` (`top` or `above`), `horizon`, `top`, `uniqueness`. Rate limited. |
+| `GET /api/league/history?league_id=…&entry_id=…` | League rank after every finished gameweek (rebuilt from public data, stored in the database). Optional: `show`. Rate limited. |
+| `GET /api/league/backtest` | Backtest of the expected-points model on finished gameweeks (no ids needed). Rate limited. |
+| `GET /api/league/live`, `/api/league/rivals` | Live league table of the running gameweek; captains, chips and recent transfers of the rivals above you. |
 | `GET /health` | Liveness check. Does not touch the database on purpose. |
 | `GET /metrics` | Prometheus metrics. Optionally protected with a bearer token (`METRICS_TOKEN`). |
 | `GET /api/players/top?position=MID&limit=5` | Players in the best form (`GKP`, `DEF`, `MID`, `FWD`). |
@@ -97,6 +108,19 @@ uvicorn app.main:app --reload       # http://127.0.0.1:8000/
 ```
 
 Without `DATABASE_URL` the app falls back to a local SQLite file.
+
+### Database migrations (Alembic)
+
+The schema is versioned with [Alembic](https://alembic.sqlalchemy.org/) (`migrations/`). The API, the collector and the league refresh apply pending migrations when they start (`app/migrate.py`), so a fresh database just works. You can also run them by hand:
+
+```bash
+alembic upgrade head                      # apply all migrations
+alembic current                           # which version is the database at?
+alembic upgrade head --sql                # print the SQL instead of running it
+alembic revision -m "describe the change" # write a new migration, then edit it
+```
+
+The first migration (`0001`) is a *baseline*: it creates the original tables only when they are missing, so a database made before Alembic existed is adopted without touching its data. Tests check that the migrations build exactly the schema the models describe. `SKIP_MIGRATIONS=1` turns the automatic run off.
 
 ## Run with Docker Compose (app + PostgreSQL)
 
@@ -229,10 +253,12 @@ The same Dockerfile is deployed on Render as a web service (free plan, SQLite in
 ## Known limitations and next steps
 
 - The rate limiter keeps its counters in memory, so with several replicas the limit applies per pod. A shared limiter would need Redis.
-- Tables are created at application start. A proper setup would use migrations (for example Alembic), which also avoids a startup race between replicas.
+- Migrations run when each process starts. With several API replicas starting at the same moment two of them could race to create the same table (one would fail and be restarted). For a larger setup, run `alembic upgrade head` once as a Kubernetes Job or Helm pre-upgrade hook instead.
 - PostgreSQL runs inside the cluster for demo purposes. In production a managed database would be preferable.
 - The cluster is a local minikube setup, not a production environment, and Render's free plan sleeps when idle.
 - The score ignores captaincy, bonus points and penalties, and the analysis uses squads as of the last deadline.
 - Image tag `latest` is used for simplicity. In production an immutable `sha-` tag should be pinned.
 - The FPL API is unofficial and may change or block requests without notice.
-- Ideas: captain suggestions, a multi-transfer planner with point hits, league history stored per gameweek, Terraform for the infrastructure.
+- The rank history is rebuilt from the top 25 managers only, so in a very large league the places are relative to that group.
+- The backtest is run on only the gameweeks played so far and does not know about past injuries, so treat small differences as noise. `BENCH_WEIGHT` and the captain factor cannot be tested with it.
+- Ideas: Terraform for the infrastructure.

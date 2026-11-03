@@ -104,6 +104,10 @@ class FplClient:
     def fixtures(self) -> list[dict]:
         return self._get("fixtures/?future=1", ttl=900)
 
+    def all_fixtures(self, ttl: int = 3600) -> list[dict]:
+        """Every fixture of the season, played ones too (needed to look back)."""
+        return self._get("fixtures/", ttl=ttl)
+
     def league_standings(self, league_id: int, max_pages: int = 10) -> list[dict]:
         """All rows of a classic mini-league (the API returns 50 per page)."""
         rows: list[dict] = []
@@ -116,6 +120,18 @@ class FplClient:
             if not block.get("has_next"):
                 break
         return rows
+
+    def entry_history(self, entry_id: int, ttl: int = 900) -> dict:
+        """Chips used and points per gameweek of one manager."""
+        return self._get(f"entry/{entry_id}/history/", ttl=ttl)
+
+    def entry_transfers(self, entry_id: int, ttl: int = 900) -> list[dict]:
+        """Every transfer a manager made this season (element_in / element_out / event)."""
+        return self._get(f"entry/{entry_id}/transfers/", ttl=ttl)
+
+    def live(self, event: int, ttl: int = 60) -> dict:
+        """Points of every player in a (running) gameweek. Short cache: it changes all the time."""
+        return self._get(f"event/{event}/live/", ttl=ttl)
 
     def entry_picks(self, entry_id: int, event: int, ttl: int = 900) -> dict:
         """A manager's squad for one gameweek.

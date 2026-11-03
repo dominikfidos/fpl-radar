@@ -12,7 +12,8 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
+from app.migrate import migrate_on_startup
 from app.models import Player, Snapshot
 
 # Unofficial public endpoint used by the FPL website itself.
@@ -70,7 +71,7 @@ def save_snapshot(db: Session, data: dict) -> int:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    Base.metadata.create_all(bind=engine)
+    migrate_on_startup()
     data = fetch_bootstrap()
     with SessionLocal() as db:
         saved = save_snapshot(db, data)
