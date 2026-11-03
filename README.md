@@ -65,6 +65,18 @@ For one classic mini-league the report:
 
 The score is a transparent heuristic, not a prediction. Squads of other managers are hidden by FPL until the gameweek deadline, so the analysis uses the squads from the last deadline.
 
+### More tabs in the web UI
+
+The result is split into tabs (adding one is a single line in the `TABS` array in `app/static/index.html`):
+
+- **Transfers**: the swap suggestions above, plus a **transfer planner** for 1–2 transfers made together: shared budget (bank plus what you get for the players sold), max 3 players per club, and the 4-point cost for every transfer beyond your free ones (`free_transfers` is an input, because FPL does not expose it without logging in). Each plan gets two separate verdicts: worth it in expected *points*, and worth it as a *differential* (League Differential Score).
+- **Captain**: expected points in the next gameweek, reduced when many rivals captain the same player. Shows a safe pick, a differential pick and other options.
+- **Rivals**: captains, chips used and recent transfers of the managers above you, and who they are buying and selling most.
+- **Fixtures**: the next fixtures of your clubs with difficulty colours, and blank / double gameweeks.
+- **Prices**: an *estimate* of who may rise or fall in price, from this gameweek's net transfers. FPL does not publish its formula, so the limits are rough guesses.
+- **History** and **Model**: see below.
+- **Live table** (a side panel next to the tabs, refreshed every minute): the league table of the running gameweek from the players' live points, the captain multiplier and transfer costs. Automatic substitutions are not applied until FPL confirms them.
+
 ### League rank history
 
 FPL only shows the current league table, but every manager's own history is public. The **History** tab rebuilds the table after each finished gameweek (rank = how many managers had more points), stores it in the `rank_history` table and draws a rank chart with you highlighted. Once stored, showing the chart needs no FPL requests, and `python -m app.league.refresh` keeps it up to date. Ranks are counted among the tracked managers (top 25 plus you).
@@ -82,10 +94,11 @@ The **collector** (`python -m app.collector`) downloads one JSON from the FPL AP
 | Endpoint | Description |
 |---|---|
 | `GET /` | Web UI for the league report. |
-| `GET /api/league/report?league_id=…&entry_id=…` | League differential report (JSON). Optional: `rivals`, `mode` (`top` or `above`), `horizon`, `top`, `uniqueness`. Rate limited. |
+| `GET /api/league/report?league_id=…&entry_id=…` | League differential report (JSON). Optional: `rivals`, `mode` (`top` or `above`), `horizon`, `top`, `uniqueness`, `free_transfers`. Also contains the captain options, fixture ticker, transfer planner and price watch. Rate limited. |
 | `GET /api/league/history?league_id=…&entry_id=…` | League rank after every finished gameweek (rebuilt from public data, stored in the database). Optional: `show`. Rate limited. |
 | `GET /api/league/backtest` | Backtest of the expected-points model on finished gameweeks (no ids needed). Rate limited. |
-| `GET /api/league/live`, `/api/league/rivals` | Live league table of the running gameweek; captains, chips and recent transfers of the rivals above you. |
+| `GET /api/league/live?league_id=…&entry_id=…` | Live league table of the running gameweek (top 20 plus you). Optional: `limit`. Rate limited. |
+| `GET /api/league/rivals?league_id=…&entry_id=…` | Captains, chips and recent transfers of the rivals above you. Optional: `rivals`, `mode`, `recent`. Rate limited. |
 | `GET /health` | Liveness check. Does not touch the database on purpose. |
 | `GET /metrics` | Prometheus metrics. Optionally protected with a bearer token (`METRICS_TOKEN`). |
 | `GET /api/players/top?position=MID&limit=5` | Players in the best form (`GKP`, `DEF`, `MID`, `FWD`). |
@@ -247,6 +260,9 @@ The same Dockerfile is deployed on Render as a web service (free plan, SQLite in
 - **Cache in the existing database instead of Redis**: for a few dozen requests per gameweek, one component less to run. Redis would be a natural upgrade for a shared rate limiter.
 - **Safe rendering**: team and manager names come from strangers, so the front end builds the page with `textContent` and never injects them as HTML.
 - **Low-cardinality metrics**: request metrics are labelled with the route template (`/api/players/{player_id}/history`), not the real URL, so the number of time series stays small.
+- **No look-ahead in the backtest**: a gameweek is predicted only from the weeks before it, and the model is compared with a naive baseline, so "it works" is something that can be measured and can fail.
+- **Public data instead of storing everything forever**: the rank history is rebuilt from managers' public histories and then stored, so the chart is complete even for gameweeks played before the app was first used.
+- **Tabs load their own data**: the Live, Rivals, History and Model views have their own endpoints and caches (live data is cached for about a minute, finished gameweeks for days), so one slow or heavy view does not slow down the main report.
 - **Secrets outside Git**: database credentials live in `.env` locally and in a Kubernetes Secret in the cluster.
 - **Gates before publishing**: the image is built and scanned after lint and tests, and pushed only from `main`.
 
@@ -256,7 +272,8 @@ The same Dockerfile is deployed on Render as a web service (free plan, SQLite in
 - Migrations run when each process starts. With several API replicas starting at the same moment two of them could race to create the same table (one would fail and be restarted). For a larger setup, run `alembic upgrade head` once as a Kubernetes Job or Helm pre-upgrade hook instead.
 - PostgreSQL runs inside the cluster for demo purposes. In production a managed database would be preferable.
 - The cluster is a local minikube setup, not a production environment, and Render's free plan sleeps when idle.
-- The score ignores captaincy, bonus points and penalties, and the analysis uses squads as of the last deadline.
+- Expected points ignore bonus points, saves and penalties (the backtest shows the model predicts about half a point too low on average, which shifts all players alike). Squads of other managers are as of the last deadline.
+- The transfer planner uses market prices, not your real selling prices (FPL keeps part of the profit), and does not know how many free transfers you have unless you enter it.
 - Image tag `latest` is used for simplicity. In production an immutable `sha-` tag should be pinned.
 - The FPL API is unofficial and may change or block requests without notice.
 - The rank history is rebuilt from the top 25 managers only, so in a very large league the places are relative to that group.
