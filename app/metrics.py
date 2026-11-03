@@ -4,7 +4,8 @@ Prometheus visits GET /metrics every few seconds, stores the numbers, and
 Grafana draws them. The four questions we want to answer at a glance:
   - Is it up and how busy is it?            -> http_requests_total
   - Is it slow?                              -> http_request_duration_seconds
-  - Is something failing?                    -> status="5xx" in http_requests_total, fpl_api_requests_total{outcome="error"}
+  - Is something failing?                    -> status="5xx" in http_requests_total,
+                                                fpl_api_requests_total{outcome="error"}
   - Are visitors being throttled?            -> rate_limit_rejections_total
 """
 

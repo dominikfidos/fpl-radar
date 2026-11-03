@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import time
 from collections import defaultdict, deque
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import HTTPException, Request
 

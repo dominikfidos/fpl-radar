@@ -7,8 +7,9 @@ reasonable later upgrade (see the README, "Next steps").
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -27,12 +28,12 @@ class DbCache:
                 return None
             fetched_at = row.fetched_at
             if fetched_at.tzinfo is None:  # SQLite drops the timezone
-                fetched_at = fetched_at.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) - fetched_at >= timedelta(seconds=ttl):
+                fetched_at = fetched_at.replace(tzinfo=UTC)
+            if datetime.now(UTC) - fetched_at >= timedelta(seconds=ttl):
                 return None
             return row.payload
 
     def set(self, key: str, value: Any) -> None:
         with self._session_factory() as db:
-            db.merge(ApiCache(key=key, fetched_at=datetime.now(timezone.utc), payload=value))
+            db.merge(ApiCache(key=key, fetched_at=datetime.now(UTC), payload=value))
             db.commit()

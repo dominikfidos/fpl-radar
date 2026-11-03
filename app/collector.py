@@ -6,7 +6,7 @@ In Kubernetes the same image runs this command on a schedule (CronJob).
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select
@@ -39,7 +39,7 @@ def save_snapshot(db: Session, data: dict) -> int:
     """Store the current state of every player. Returns the number of players saved."""
     teams = {team["id"]: team["name"] for team in data["teams"]}
     players = {player.id: player for player in db.scalars(select(Player))}
-    taken_at = datetime.now(timezone.utc)
+    taken_at = datetime.now(UTC)
 
     # 1) make sure every player exists (and keep names/teams up to date)
     for element in data["elements"]:

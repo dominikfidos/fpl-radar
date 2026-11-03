@@ -5,5 +5,5 @@ kind: ConfigMap
 metadata:
   name: fpl-config
 data:
-  FPL_LEAGUE_ID: "REPLACE_WITH_LEAGUE_ID"
-  FPL_ENTRY_ID: "REPLACE_WITH_YOUR_TEAM_ID"
+  FPL_LEAGUE_ID: "156486"
+  FPL_ENTRY_ID: "4006393"
