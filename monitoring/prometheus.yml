@@ -1,0 +1,10 @@
+# Prometheus: "go and read /metrics from these targets every 15 seconds".
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: fpl-radar
+    metrics_path: /metrics
+    static_configs:
+      # "api" is the Compose service name; Docker's DNS resolves it.
+      - targets: ["api:8000"]

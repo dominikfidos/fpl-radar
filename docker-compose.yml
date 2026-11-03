@@ -75,8 +75,47 @@ services:
     profiles:
       - tools
 
+  # Monitoring (optional). Start with:  docker compose --profile monitoring up -d
+  # Prometheus: http://127.0.0.1:9090   Grafana: http://127.0.0.1:3000  (login admin / admin)
+  # Ports are bound to 127.0.0.1 so they are NOT reachable from other computers.
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - backend
+    depends_on:
+      - api
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - backend
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
 networks:
   backend:
 
 volumes:
   pgdata:
+  promdata:
+  grafanadata:

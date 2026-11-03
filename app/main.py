@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
 from app.league.router import router as league_router
+from app.metrics import router as metrics_router
+from app.metrics import track_requests
 from app.models import Player, Snapshot
 from app.web import router as web_router
 
@@ -22,6 +24,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="FPL Radar API", version="1.0.0", lifespan=lifespan)
 app.include_router(league_router)
 app.include_router(web_router)
+app.include_router(metrics_router)
+app.middleware("http")(track_requests)
 
 
 class PlayerStats(BaseModel):

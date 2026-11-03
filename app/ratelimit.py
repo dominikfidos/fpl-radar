@@ -18,6 +18,8 @@ from typing import Callable
 
 from fastapi import HTTPException, Request
 
+from app.metrics import RATE_LIMITED
+
 
 class RateLimiter:
     def __init__(
@@ -70,6 +72,7 @@ def rate_limit(request: Request) -> None:
     limiter = _limiters.setdefault(max_calls, RateLimiter(max_calls))
     wait = limiter.retry_after(client_ip(request))
     if wait > 0:
+        RATE_LIMITED.inc()
         raise HTTPException(
             status_code=429,
             detail="Too many requests - please wait a moment and try again.",

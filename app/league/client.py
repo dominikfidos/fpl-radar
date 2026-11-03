@@ -13,6 +13,8 @@ from typing import Any, Callable, Protocol
 
 import httpx
 
+from app.metrics import FPL_REQUESTS
+
 BASE_URL = "https://fantasy.premierleague.com/api/"
 USER_AGENT = "fpl-radar-portfolio/1.0"
 
@@ -53,8 +55,14 @@ class FplClient:
         if self._cache is not None:
             hit = self._cache.get(path, ttl)
             if hit is not None:
+                FPL_REQUESTS.labels("cache_hit").inc()
                 return hit
-        data = self._fetch(path)
+        try:
+            data = self._fetch(path)
+        except FplApiError:
+            FPL_REQUESTS.labels("error").inc()
+            raise
+        FPL_REQUESTS.labels("ok").inc()
         if self._cache is not None:
             self._cache.set(path, data)
         return data

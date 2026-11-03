@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: fpl-radar
+    folder: FPL Radar
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
